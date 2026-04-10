@@ -14,6 +14,35 @@ defmodule ChasingSunWeb.Layouts do
 
   embed_templates "layouts/*"
 
+  attr :navigate, :string, required: true
+  attr :subtitle, :string, default: "Greenhouse Operations"
+  attr :title, :string, default: "ChasingSun"
+  attr :image_class, :string, default: "h-12 w-12"
+
+  attr :title_class, :string,
+    default: "text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)]"
+
+  attr :subtitle_class, :string,
+    default: "text-xs uppercase tracking-[0.28em] text-[var(--muted)]"
+
+  attr :class, :string, default: nil
+
+  def brand_lockup(assigns) do
+    ~H"""
+    <.link navigate={@navigate} class={["flex items-center gap-3", @class]}>
+      <img
+        src={~p"/images/CHASING-SUN.png"}
+        alt="ChasingSun logo"
+        class={[@image_class, "rounded-2xl object-cover shadow-[0_18px_30px_rgba(63,114,47,0.18)]"]}
+      />
+      <div>
+        <p class={@subtitle_class}>{@subtitle}</p>
+        <p class={@title_class}>{@title}</p>
+      </div>
+    </.link>
+    """
+  end
+
   def sidebar_link_class(page_title, link_title) do
     [
       "sidebar-link",

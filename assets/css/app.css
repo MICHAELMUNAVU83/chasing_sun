@@ -160,4 +160,13 @@
     border-color: var(--line);
     color: var(--ink);
   }
+
+  .chart-shell {
+    @apply rounded-[1.75rem] border bg-white/70 p-4;
+    border-color: var(--line);
+  }
+
+  .chart-frame {
+    @apply relative mt-5 h-[280px] w-full;
+  }
 }

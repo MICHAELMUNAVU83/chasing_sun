@@ -69,6 +69,17 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
           Weekly performance table
         </h2>
 
+        <div class="mt-6 chart-shell">
+          <p class="text-sm font-semibold text-[var(--ink)]">Actual vs expected trend</p>
+          <div class="chart-frame">
+            <canvas
+              id="performance-trend-chart"
+              phx-hook="ChartRenderer"
+              data-chart={Jason.encode!(performance_chart(@report.rows))}
+            ></canvas>
+          </div>
+        </div>
+
         <div class="mt-6 overflow-x-auto">
           <table class="data-table">
             <thead>
@@ -152,4 +163,52 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
+
+  defp performance_chart(rows) do
+    monthly_points =
+      rows
+      |> Enum.sort_by(& &1.week_ending_on, Date)
+      |> Enum.group_by(& &1.month)
+      |> Enum.map(fn {month, month_rows} ->
+        %{
+          month: month,
+          sort_date: Enum.min_by(month_rows, & &1.week_ending_on).week_ending_on,
+          actual: Enum.reduce(month_rows, 0.0, &(&1.actual_yield + &2)),
+          expected: Enum.reduce(month_rows, 0.0, &(&1.expected_yield + &2))
+        }
+      end)
+      |> Enum.sort_by(& &1.sort_date, Date)
+
+    %{
+      type: "line",
+      valueFormat: "quantity",
+      data: %{
+        labels: Enum.map(monthly_points, & &1.month),
+        datasets: [
+          %{
+            label: "Actual yield",
+            data: Enum.map(monthly_points, &Float.round(&1.actual, 1)),
+            borderColor: "#5d9138",
+            backgroundColor: "rgba(93, 145, 56, 0.12)",
+            tension: 0.35,
+            fill: true
+          },
+          %{
+            label: "Expected yield",
+            data: Enum.map(monthly_points, &Float.round(&1.expected, 1)),
+            borderColor: "#f3d74f",
+            backgroundColor: "rgba(243, 215, 79, 0.12)",
+            tension: 0.35,
+            fill: false
+          }
+        ]
+      },
+      options: %{
+        scales: %{
+          x: %{grid: %{display: false}, ticks: %{color: "#5f6d4f"}},
+          y: %{beginAtZero: true, grid: %{color: "rgba(76, 99, 46, 0.12)"}, ticks: %{color: "#5f6d4f"}}
+        }
+      }
+    }
+  end
 end

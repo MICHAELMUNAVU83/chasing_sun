@@ -70,6 +70,17 @@ defmodule ChasingSunWeb.ForecastLive.Index do
             Forecasted output by week
           </h2>
 
+          <div class="mt-6 chart-shell">
+            <p class="text-sm font-semibold text-[var(--ink)]">Eight-week output graph</p>
+            <div class="chart-frame">
+              <canvas
+                id="forecast-weeks-chart"
+                phx-hook="ChartRenderer"
+                data-chart={Jason.encode!(forecast_chart(@forecast.weeks))}
+              ></canvas>
+            </div>
+          </div>
+
           <div class="mt-6 overflow-x-auto">
             <table class="data-table">
               <thead>
@@ -226,4 +237,43 @@ defmodule ChasingSunWeb.ForecastLive.Index do
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
+
+  defp forecast_chart(weeks) do
+    %{
+      type: "bar",
+      valueFormats: %{"y" => "quantity", "y1" => "integer"},
+      data: %{
+        labels: Enum.map(weeks, &format_date(&1.week_ending_on)),
+        datasets: [
+          %{
+            type: "line",
+            label: "Expected output",
+            data: Enum.map(weeks, &Float.round(&1.expected_output, 1)),
+            borderColor: "#5d9138",
+            backgroundColor: "rgba(93, 145, 56, 0.12)",
+            tension: 0.35,
+            fill: true,
+            yAxisID: "y",
+            valueFormat: "quantity"
+          },
+          %{
+            type: "bar",
+            label: "Active units",
+            data: Enum.map(weeks, & &1.active_units),
+            backgroundColor: "rgba(243, 215, 79, 0.72)",
+            borderRadius: 10,
+            yAxisID: "y1",
+            valueFormat: "integer"
+          }
+        ]
+      },
+      options: %{
+        scales: %{
+          x: %{grid: %{display: false}, ticks: %{color: "#5f6d4f"}},
+          y: %{beginAtZero: true, position: "left", grid: %{color: "rgba(76, 99, 46, 0.12)"}, ticks: %{color: "#5f6d4f"}},
+          y1: %{beginAtZero: true, position: "right", grid: %{display: false}, ticks: %{color: "#5f6d4f"}}
+        }
+      }
+    }
+  end
 end

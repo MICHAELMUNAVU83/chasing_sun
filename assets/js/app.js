@@ -17,15 +17,110 @@
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html"
+import Chart from "chart.js/auto"
 // Establish Phoenix Socket and LiveView configuration.
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
+const formatMetric = (value, format = "quantity") => {
+  const numericValue = typeof value === "number" ? value : Number(value || 0)
+
+  if (format === "integer") {
+    return new Intl.NumberFormat("en-KE", {maximumFractionDigits: 0}).format(numericValue)
+  }
+
+  const formatted = new Intl.NumberFormat("en-KE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }).format(numericValue)
+
+  return format === "kes" ? `KES ${formatted}` : formatted
+}
+
+const applyChartFormatting = (config) => {
+  const valueFormats = config.valueFormats || {}
+  const options = config.options || {}
+  const scales = options.scales || {}
+
+  Object.entries(scales).forEach(([axis, axisConfig]) => {
+    const axisFormat = valueFormats[axis]
+
+    if (!axisFormat) return
+
+    axisConfig.ticks = axisConfig.ticks || {}
+    axisConfig.ticks.callback = (value) => formatMetric(value, axisFormat)
+  })
+
+  const tooltipCallbacks = options.plugins?.tooltip?.callbacks || {}
+
+  return {
+    ...config,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      ...options,
+      scales,
+      plugins: {
+        legend: {
+          labels: {
+            usePointStyle: true,
+            boxWidth: 10,
+            color: "#1f2a16"
+          },
+          ...options.plugins?.legend
+        },
+        tooltip: {
+          ...options.plugins?.tooltip,
+          callbacks: {
+            ...tooltipCallbacks,
+            label: (context) => {
+              const datasetFormat = context.dataset.valueFormat
+              const axisFormat = valueFormats[context.dataset.yAxisID || "y"]
+              const selectedFormat = datasetFormat || axisFormat || config.valueFormat || "quantity"
+              const rawValue = context.parsed.y ?? context.parsed
+              const prefix = context.dataset.label ? `${context.dataset.label}: ` : ""
+
+              return prefix + formatMetric(rawValue, selectedFormat)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+const Hooks = {
+  ChartRenderer: {
+    mounted() {
+      this.renderChart()
+    },
+
+    updated() {
+      this.renderChart()
+    },
+
+    destroyed() {
+      if (this.chart) this.chart.destroy()
+    },
+
+    renderChart() {
+      const payload = this.el.dataset.chart
+      if (!payload) return
+
+      const config = applyChartFormatting(JSON.parse(payload))
+
+      if (this.chart) this.chart.destroy()
+      this.chart = new Chart(this.el, config)
+    }
+  }
+}
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken}
+  params: {_csrf_token: csrfToken},
+  hooks: Hooks
 })
 
 // Show progress bar on live navigation and form submits

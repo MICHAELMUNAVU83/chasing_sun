@@ -110,61 +110,120 @@ defmodule ChasingSunWeb.DashboardLive.Index do
       </div>
 
       <div class="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
-        <div class="panel-shell">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <p class="eyebrow">Live Estate View</p>
-              <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                Greenhouse status board
-              </h2>
+        <div class="space-y-6">
+          <div class="panel-shell">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="eyebrow">Live Estate View</p>
+                <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+                  Greenhouse status board
+                </h2>
+              </div>
+              <.link navigate={~p"/greenhouses"} class="action-link">Manage greenhouses</.link>
             </div>
-            <.link navigate={~p"/greenhouses"} class="action-link">Manage greenhouses</.link>
+
+            <div class="mt-6 overflow-x-auto">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Greenhouse</th>
+                    <th>Venture</th>
+                    <th>Current crop</th>
+                    <th>Status</th>
+                    <th>Expected</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={row <- @greenhouse_rows}>
+                    <td>
+                      <p class="font-semibold text-[var(--ink)]">{row.name}</p>
+                      <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                        Unit {row.sequence_no}
+                      </p>
+                    </td>
+                    <td>
+                      <p class="font-semibold text-[var(--ink)]">{row.venture_name}</p>
+                      <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                        {row.venture_code}
+                      </p>
+                    </td>
+                    <td>
+                      <p>{row.crop_type || "No active cycle"}</p>
+                      <p class="mt-1 text-xs text-[var(--muted)]">{row.crop_meta}</p>
+                    </td>
+                    <td>
+                      <.status_badge status={row.status} />
+                    </td>
+                    <td>
+                      <p class="font-semibold">{format_quantity(row.expected_output)}</p>
+                      <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
+                    </td>
+                  </tr>
+                  <tr :if={Enum.empty?(@greenhouse_rows)}>
+                    <td colspan="5" class="text-center text-sm text-[var(--muted)]">
+                      No greenhouse records match the current filter.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div class="mt-6 overflow-x-auto">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Greenhouse</th>
-                  <th>Venture</th>
-                  <th>Current crop</th>
-                  <th>Status</th>
-                  <th>Expected</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={row <- @greenhouse_rows}>
-                  <td>
-                    <p class="font-semibold text-[var(--ink)]">{row.name}</p>
-                    <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                      Unit {row.sequence_no}
-                    </p>
-                  </td>
-                  <td>
-                    <p class="font-semibold text-[var(--ink)]">{row.venture_name}</p>
-                    <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                      {row.venture_code}
-                    </p>
-                  </td>
-                  <td>
-                    <p>{row.crop_type || "No active cycle"}</p>
-                    <p class="mt-1 text-xs text-[var(--muted)]">{row.crop_meta}</p>
-                  </td>
-                  <td>
-                    <.status_badge status={row.status} />
-                  </td>
-                  <td>
-                    <p class="font-semibold">{format_quantity(row.expected_output)}</p>
-                    <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
-                  </td>
-                </tr>
-                <tr :if={Enum.empty?(@greenhouse_rows)}>
-                  <td colspan="5" class="text-center text-sm text-[var(--muted)]">
-                    No greenhouse records match the current filter.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="panel-shell">
+            <p class="eyebrow">Visual Overview</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Output, status, and projection graphs
+            </h2>
+
+            <div class="mt-6 grid gap-4 xl:grid-cols-2">
+              <div class="chart-shell">
+                <p class="text-sm font-semibold text-[var(--ink)]">Expected output by greenhouse</p>
+                <div class="chart-frame">
+                  <canvas
+                    id="dashboard-output-chart"
+                    phx-hook="ChartRenderer"
+                    data-chart={Jason.encode!(output_chart(@greenhouse_rows))}
+                  >
+                  </canvas>
+                </div>
+              </div>
+
+              <div class="chart-shell">
+                <p class="text-sm font-semibold text-[var(--ink)]">Expected output by venture</p>
+                <div class="chart-frame">
+                  <canvas
+                    id="dashboard-venture-chart"
+                    phx-hook="ChartRenderer"
+                    data-chart={Jason.encode!(venture_output_chart(@greenhouse_rows))}
+                  >
+                  </canvas>
+                </div>
+              </div>
+
+              <div class="chart-shell">
+                <p class="text-sm font-semibold text-[var(--ink)]">Next Saturday projection vs baseline</p>
+                <div class="chart-frame">
+                  <canvas
+                    id="dashboard-projection-chart"
+                    phx-hook="ChartRenderer"
+                    data-chart={Jason.encode!(projection_chart(@forecast.projection))}
+                  >
+                  </canvas>
+                </div>
+              </div>
+
+              <div class="chart-shell">
+                <p class="text-sm font-semibold text-[var(--ink)]">Unit status mix</p>
+                <div class="chart-frame">
+                  <canvas
+                    id="dashboard-status-chart"
+                    phx-hook="ChartRenderer"
+                    data-chart={Jason.encode!(status_chart(@snapshot.metrics))}
+                  >
+                  </canvas>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -327,5 +386,141 @@ defmodule ChasingSunWeb.DashboardLive.Index do
       %{email: email} -> email
       _ -> "system"
     end
+  end
+
+  defp output_chart(rows) do
+    sorted_rows = Enum.sort_by(rows, & &1.expected_output, :desc)
+
+    %{
+      type: "bar",
+      valueFormat: "quantity",
+      data: %{
+        labels: Enum.map(sorted_rows, & &1.name),
+        datasets: [
+          %{
+            label: "Expected weekly output",
+            data: Enum.map(sorted_rows, &Float.round(&1.expected_output, 1)),
+            backgroundColor: "rgba(93, 145, 56, 0.82)",
+            borderRadius: 12
+          }
+        ]
+      },
+      options: %{
+        plugins: %{legend: %{display: false}},
+        scales: %{
+          x: %{grid: %{display: false}, ticks: %{color: "#5f6d4f"}},
+          y: %{
+            beginAtZero: true,
+            grid: %{color: "rgba(76, 99, 46, 0.12)"},
+            ticks: %{color: "#5f6d4f"}
+          }
+        }
+      }
+    }
+  end
+
+  defp status_chart(metrics) do
+    waiting = max(metrics.total_units - metrics.harvesting - metrics.soil_turning, 0)
+
+    %{
+      type: "doughnut",
+      valueFormat: "integer",
+      data: %{
+        labels: ["Harvesting", "Soil turning", "Waiting"],
+        datasets: [
+          %{
+            data: [metrics.harvesting, metrics.soil_turning, waiting],
+            backgroundColor: ["#5d9138", "#f3d74f", "#d8e3c3"],
+            borderColor: ["#ffffff", "#ffffff", "#ffffff"],
+            borderWidth: 3
+          }
+        ]
+      },
+      options: %{
+        cutout: "62%",
+        plugins: %{legend: %{position: "bottom"}}
+      }
+    }
+  end
+
+  defp venture_output_chart(rows) do
+    venture_rows =
+      rows
+      |> Enum.group_by(& &1.venture_name)
+      |> Enum.map(fn {venture_name, venture_rows} ->
+        %{
+          venture_name: venture_name,
+          expected_output: Enum.reduce(venture_rows, 0.0, &(&1.expected_output + &2))
+        }
+      end)
+      |> Enum.sort_by(& &1.expected_output, :desc)
+
+    %{
+      type: "bar",
+      valueFormat: "quantity",
+      data: %{
+        labels: Enum.map(venture_rows, & &1.venture_name),
+        datasets: [
+          %{
+            label: "Expected weekly output",
+            data: Enum.map(venture_rows, &Float.round(&1.expected_output, 1)),
+            backgroundColor: [
+              "rgba(93, 145, 56, 0.86)",
+              "rgba(243, 215, 79, 0.78)",
+              "rgba(63, 114, 47, 0.72)",
+              "rgba(184, 204, 150, 0.92)"
+            ],
+            borderRadius: 12
+          }
+        ]
+      },
+      options: %{
+        plugins: %{legend: %{display: false}},
+        scales: %{
+          x: %{grid: %{display: false}, ticks: %{color: "#5f6d4f"}},
+          y: %{
+            beginAtZero: true,
+            grid: %{color: "rgba(76, 99, 46, 0.12)"},
+            ticks: %{color: "#5f6d4f"}
+          }
+        }
+      }
+    }
+  end
+
+  defp projection_chart(projections) do
+    visible_projections = Enum.take(projections, 6)
+
+    %{
+      type: "bar",
+      valueFormat: "quantity",
+      data: %{
+        labels: Enum.map(visible_projections, & &1.greenhouse_name),
+        datasets: [
+          %{
+            label: "Expected baseline",
+            data: Enum.map(visible_projections, &Float.round(&1.expected, 1)),
+            backgroundColor: "rgba(243, 215, 79, 0.65)",
+            borderRadius: 10
+          },
+          %{
+            label: "Projected output",
+            data: Enum.map(visible_projections, &Float.round(&1.projected, 1)),
+            backgroundColor: "rgba(93, 145, 56, 0.82)",
+            borderRadius: 10
+          }
+        ]
+      },
+      options: %{
+        scales: %{
+          x: %{grid: %{display: false}, ticks: %{color: "#5f6d4f"}},
+          y: %{
+            beginAtZero: true,
+            grid: %{color: "rgba(76, 99, 46, 0.12)"},
+            ticks: %{color: "#5f6d4f"}
+          }
+        }
+      }
+    }
   end
 end

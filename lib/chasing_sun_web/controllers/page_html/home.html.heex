@@ -32,9 +32,22 @@
     </div>
 
     <div class="relative max-w-2xl">
-      <div class="inline-flex items-center gap-3 rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">
-        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--brand-green)]"></span>
-        ChasingSun Greenhouse Operations
+      <div class="inline-flex rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-3 shadow-[0_16px_30px_rgba(63,114,47,0.08)]">
+        <.link navigate={~p"/"} class="flex items-center gap-3">
+          <img
+            src={~p"/images/CHASING-SUN.png"}
+            alt="ChasingSun logo"
+            class="h-12 w-12 rounded-2xl object-cover shadow-[0_18px_30px_rgba(63,114,47,0.18)]"
+          />
+          <div>
+            <p class="text-[10px] uppercase tracking-[0.24em] text-[var(--muted)]">
+              Greenhouse Operations
+            </p>
+            <p class="text-xl font-semibold tracking-[-0.04em] text-[var(--ink)]">
+              ChasingSun
+            </p>
+          </div>
+        </.link>
       </div>
 
       <h1 class="mt-8 text-5xl font-semibold tracking-[-0.08em] text-[var(--ink)] sm:text-6xl">

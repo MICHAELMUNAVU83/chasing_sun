@@ -3,19 +3,7 @@
     <div class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside class="sidebar-shell lg:sticky lg:top-5 lg:h-[calc(100vh-2.5rem)]">
         <div>
-          <a href={~p"/dashboard"} class="flex items-center gap-3">
-            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-green)] text-lg font-bold text-white shadow-[0_18px_30px_rgba(63,114,47,0.28)]">
-              CS
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
-                Greenhouse Operations
-              </p>
-              <p class="text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)]">
-                ChasingSun
-              </p>
-            </div>
-          </a>
+          <.brand_lockup navigate={~p"/dashboard"} />
 
           <div class="sidebar-user-card mt-6">
             <p class="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Signed in</p>
@@ -90,19 +78,7 @@
     <header class="mb-6 rounded-[2rem] border border-[var(--line)] bg-white/90 px-5 py-4 shadow-[0_30px_60px_rgba(45,70,22,0.08)] backdrop-blur">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex items-center gap-4">
-          <a href={~p"/"} class="flex items-center gap-3">
-            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-green)] text-lg font-bold text-white shadow-[0_18px_30px_rgba(63,114,47,0.28)]">
-              CS
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
-                Greenhouse Operations
-              </p>
-              <p class="text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)]">
-                ChasingSun
-              </p>
-            </div>
-          </a>
+          <.brand_lockup navigate={~p"/"} />
         </div>
 
         <nav class="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--muted)]">
