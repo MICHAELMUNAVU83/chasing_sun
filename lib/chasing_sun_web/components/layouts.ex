@@ -107,6 +107,10 @@ defmodule ChasingSunWeb.Layouts do
     do:
       "Configure ChasingSun crop durations, expected yields, and KES pricing models used by planning and analytics."
 
+  defp description_for("Ventures"),
+    do:
+      "Manage venture names and codes used by greenhouse ownership, filtering, and reporting across ChasingSun."
+
   defp description_for("Admin Guide"),
     do:
       "Read the ChasingSun admin guide for page-by-page instructions on what to review, edit, and troubleshoot."

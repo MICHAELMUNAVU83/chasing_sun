@@ -42,6 +42,7 @@ defmodule ChasingSunWeb.Router do
       pipe_through [:browser, :require_authenticated_user]
 
       live "/guide", GuideLive.Index, :index
+      live "/ventures", VentureLive.Index, :index
       live "/crop-rules", CropRuleLive.Index, :index
     end
   end

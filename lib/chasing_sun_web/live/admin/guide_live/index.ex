@@ -25,11 +25,7 @@ defmodule ChasingSunWeb.Admin.GuideLive.Index do
           </p>
 
           <div class="mt-8 grid gap-4 md:grid-cols-1">
-            <.summary_card
-              title="Admin-only pages"
-              value="2"
-              hint="Guide and crop rules"
-            />
+            <.summary_card title="Admin-only pages" value="3" hint="Guide, ventures, and crop rules" />
             <.summary_card
               title="Core operating screens"
               value="5"
@@ -230,6 +226,20 @@ defmodule ChasingSunWeb.Admin.GuideLive.Index do
         ],
         note:
           "Forecast is downstream of crop rules, greenhouse cycles, and harvest history. Fix those pages first when this page disagrees with reality."
+      },
+      %{
+        section: "Admin",
+        title: "Ventures",
+        path: ~p"/admin/ventures",
+        summary:
+          "Ventures are the ownership groups used by greenhouse assignment, cross-page filters, and roll-up reporting.",
+        edit_items: [
+          "Add new venture groups before assigning greenhouses to them.",
+          "Rename a venture when business labels change.",
+          "Update venture codes carefully because filters and URLs use them."
+        ],
+        note:
+          "Delete only unused ventures. If greenhouses still point to a venture, remove or reassign those greenhouse links first."
       },
       %{
         section: "Admin",
