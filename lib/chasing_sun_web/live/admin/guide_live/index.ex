@@ -24,7 +24,7 @@ defmodule ChasingSunWeb.Admin.GuideLive.Index do
             and what to check first when numbers look wrong.
           </p>
 
-          <div class="mt-8 grid gap-4 md:grid-cols-3">
+          <div class="mt-8 grid gap-4 md:grid-cols-1">
             <.summary_card
               title="Admin-only pages"
               value="2"
@@ -72,7 +72,7 @@ defmodule ChasingSunWeb.Admin.GuideLive.Index do
           What each page does and what to edit there
         </h2>
 
-        <div class="mt-6 grid gap-4 xl:grid-cols-2">
+        <div class="mt-6 grid gap-4 s">
           <article
             :for={page <- @page_guides}
             class="rounded-[1.75rem] border border-[var(--line)] bg-white/90 p-5"
