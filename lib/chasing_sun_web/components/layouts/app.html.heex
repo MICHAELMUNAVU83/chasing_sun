@@ -53,6 +53,13 @@
           </a>
           <a
             :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_crop_rules)}
+            href={~p"/admin/guide"}
+            class={sidebar_link_class(assigns[:page_title], "Admin Guide")}
+          >
+            Admin Guide
+          </a>
+          <a
+            :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_crop_rules)}
             href={~p"/admin/crop-rules"}
             class={sidebar_link_class(assigns[:page_title], "Crop Rules")}
           >

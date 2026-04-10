@@ -4,9 +4,33 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
+    <meta name="description" content={seo_description(assigns)} />
+    <meta name="keywords" content={seo_keywords(assigns)} />
+    <meta name="author" content="ChasingSun" />
+    <meta name="application-name" content="ChasingSun" />
+    <meta name="theme-color" content="#5d9138" />
+    <meta name="robots" content={seo_robots(assigns)} />
+
+    <meta property="og:site_name" content="ChasingSun" />
+    <meta property="og:title" content={seo_title(assigns)} />
+    <meta property="og:description" content={seo_description(assigns)} />
+    <meta property="og:type" content={seo_type(assigns)} />
+    <meta property="og:url" content={seo_url(assigns)} />
+    <meta property="og:image" content={seo_image(assigns)} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={seo_title(assigns)} />
+    <meta name="twitter:description" content={seo_description(assigns)} />
+    <meta name="twitter:image" content={seo_image(assigns)} />
+
     <.live_title default="ChasingSun" suffix=" · Greenhouse Ops">
       {assigns[:page_title]}
     </.live_title>
+    <link rel="canonical" href={seo_url(assigns)} />
+    <link rel="icon" type="image/svg+xml" href={~p"/images/logo.svg"} />
+    <link rel="icon" type="image/png" sizes="64x64" href={~p"/favicon.png"} />
+    <link rel="shortcut icon" type="image/png" href={~p"/favicon.png"} />
+    <link rel="apple-touch-icon" href={~p"/images/CHASING-SUN.png"} />
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>

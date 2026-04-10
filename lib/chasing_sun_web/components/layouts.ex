@@ -10,6 +10,8 @@ defmodule ChasingSunWeb.Layouts do
   """
   use ChasingSunWeb, :html
 
+  @default_description "ChasingSun is a greenhouse operations platform for crop planning, harvest capture, performance tracking, and short-range forecasting."
+
   embed_templates "layouts/*"
 
   def sidebar_link_class(page_title, link_title) do
@@ -18,4 +20,69 @@ defmodule ChasingSunWeb.Layouts do
       if(page_title == link_title, do: "sidebar-link-active")
     ]
   end
+
+  def seo_title(assigns) do
+    case assigns[:page_title] do
+      nil -> "ChasingSun"
+      title -> "#{title} | ChasingSun"
+    end
+  end
+
+  def seo_description(assigns) do
+    assigns[:meta_description] || description_for(assigns[:page_title])
+  end
+
+  def seo_keywords(assigns) do
+    assigns[:meta_keywords] ||
+      "ChasingSun, greenhouse operations, harvest management, crop forecasting, greenhouse dashboard, farm analytics"
+  end
+
+  def seo_url(assigns) do
+    assigns[:meta_url] || ChasingSunWeb.Endpoint.url()
+  end
+
+  def seo_image(assigns) do
+    assigns[:meta_image] || absolute_url(~p"/images/CHASING-SUN.png")
+  end
+
+  def seo_robots(assigns) do
+    assigns[:meta_robots] ||
+      if(assigns[:current_user], do: "noindex, nofollow", else: "index, follow")
+  end
+
+  def seo_type(assigns) do
+    assigns[:meta_type] || if(assigns[:current_user], do: "website", else: "website")
+  end
+
+  defp description_for("Dashboard"),
+    do:
+      "Track greenhouse status, expected output, and recommended next crop actions from the ChasingSun control room."
+
+  defp description_for("Greenhouses"),
+    do:
+      "Manage greenhouse units, venture assignments, and active crop cycles that drive ChasingSun forecasting and analytics."
+
+  defp description_for("Harvest Records"),
+    do:
+      "Capture weekly greenhouse harvest actuals in ChasingSun to keep performance and revenue reporting accurate."
+
+  defp description_for("Performance"),
+    do:
+      "Compare actual yield, expected output, and revenue estimates across greenhouse operations in ChasingSun."
+
+  defp description_for("Forecast"),
+    do:
+      "Review ChasingSun eight-week greenhouse output forecasts, peak weeks, and upcoming crop rotation recommendations."
+
+  defp description_for("Crop Rules"),
+    do:
+      "Configure ChasingSun crop durations, expected yields, and KES pricing models used by planning and analytics."
+
+  defp description_for("Admin Guide"),
+    do:
+      "Read the ChasingSun admin guide for page-by-page instructions on what to review, edit, and troubleshoot."
+
+  defp description_for(_page_title), do: @default_description
+
+  defp absolute_url(path), do: ChasingSunWeb.Endpoint.url() <> path
 end
