@@ -1,0 +1,135 @@
+<.flash_group flash={@flash} />
+<div class="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+  <section class="relative overflow-hidden rounded-[2.5rem] border border-[var(--line)] bg-white/85 px-6 py-8 shadow-[0_30px_70px_rgba(45,70,22,0.12)] backdrop-blur sm:px-10 sm:py-12 lg:px-14 lg:py-16">
+    <div class="absolute inset-y-0 right-0 hidden w-1/2 lg:block">
+      <div class="absolute right-8 top-10 h-48 w-48 rounded-full bg-[var(--brand-yellow)]/45 blur-3xl">
+      </div>
+      <div class="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-[var(--brand-green)]/20 blur-3xl">
+      </div>
+      <div class="absolute inset-y-12 right-12 rounded-[2rem] border border-white/60 bg-[linear-gradient(180deg,rgba(237,243,221,0.95),rgba(255,255,255,0.72))] p-6 shadow-[0_18px_40px_rgba(63,114,47,0.12)]">
+        <p class="eyebrow">Live Operations Snapshot</p>
+        <div class="mt-5 grid gap-4">
+          <div class="metric-card">
+            <div class="metric-label">Core workflows</div>
+            <div class="metric-value">5</div>
+            <p class="metric-hint">Greenhouses, cycles, harvest, analytics, and forecasting</p>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Planning horizon</div>
+            <div class="metric-value">8 weeks</div>
+            <p class="metric-hint">Forward output view built from crop rules and active cycles</p>
+          </div>
+          <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--ink)] p-5 text-white">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">
+              Designed for operators
+            </p>
+            <p class="mt-3 text-xl font-semibold tracking-[-0.05em]">
+              Move from scattered spreadsheets to a single daily control panel.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="relative max-w-2xl">
+      <div class="inline-flex items-center gap-3 rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">
+        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--brand-green)]"></span>
+        ChasingSun Greenhouse Operations
+      </div>
+
+      <h1 class="mt-8 text-5xl font-semibold tracking-[-0.08em] text-[var(--ink)] sm:text-6xl">
+        Plan the crop cycle. Record the harvest. See the next 8 weeks before they happen.
+      </h1>
+
+      <p class="mt-6 max-w-xl text-lg leading-8 text-[var(--muted)]">
+        ChasingSun is an internal operations platform for greenhouse teams. It unifies crop cycle planning, weekly actual harvest capture, performance tracking, and short-range forecasting in one Phoenix LiveView system.
+      </p>
+
+      <div
+        :if={@current_user}
+        class="mt-8 inline-flex items-center gap-3 rounded-[1.25rem] border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-3"
+      >
+        <div class="h-2.5 w-2.5 rounded-full bg-[var(--brand-green)]"></div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
+            Signed in
+          </p>
+          <p class="text-sm font-semibold text-[var(--ink)]">{@current_user.email}</p>
+        </div>
+      </div>
+
+      <div class="mt-10 flex flex-wrap gap-4">
+        <%= if @current_user do %>
+          <.link
+            navigate={~p"/dashboard"}
+            class="rounded-full bg-[var(--brand-green)] px-6 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(63,114,47,0.24)] transition hover:bg-[var(--brand-green-deep)]"
+          >
+            Open dashboard
+          </.link>
+          <.link
+            navigate={~p"/users/settings"}
+            class="rounded-full border border-[var(--line-strong)] bg-white px-6 py-3 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--brand-green)] hover:text-[var(--brand-green-deep)]"
+          >
+            Account settings
+          </.link>
+          <.link
+            href={~p"/users/log_out"}
+            method="delete"
+            class="rounded-full border border-transparent bg-[var(--surface-soft)] px-6 py-3 text-sm font-semibold text-[var(--muted)] transition hover:border-[var(--line)] hover:text-[var(--ink)]"
+          >
+            Log out
+          </.link>
+        <% else %>
+          <.link
+            navigate={~p"/users/log_in"}
+            class="rounded-full bg-[var(--brand-green)] px-6 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(63,114,47,0.24)] transition hover:bg-[var(--brand-green-deep)]"
+          >
+            Log in
+          </.link>
+          <.link
+            navigate={~p"/users/register"}
+            class="rounded-full border border-[var(--line-strong)] bg-white px-6 py-3 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--brand-green)] hover:text-[var(--brand-green-deep)]"
+          >
+            Create account
+          </.link>
+        <% end %>
+      </div>
+
+      <div class="mt-12 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">
+            Registry
+          </p>
+          <p class="mt-3 text-xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+            Greenhouses and ventures
+          </p>
+          <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Maintain the full estate with explicit venture ownership and active crop cycles.
+          </p>
+        </div>
+        <div class="rounded-[1.5rem] border border-[var(--line)] bg-white p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">
+            Execution
+          </p>
+          <p class="mt-3 text-xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+            Weekly harvest actuals
+          </p>
+          <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Capture performance each week and compare it against rule-based expectations.
+          </p>
+        </div>
+        <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--brand-yellow)]/25 p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">
+            Forecast
+          </p>
+          <p class="mt-3 text-xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+            Output and next crops
+          </p>
+          <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Project the coming eight weeks and plan crop rotations before the cycle closes.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

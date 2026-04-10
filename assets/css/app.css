@@ -1,0 +1,163 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@layer base {
+  :root {
+    --canvas: #f6f5ea;
+    --surface: #ffffff;
+    --surface-soft: #edf3dd;
+    --ink: #1f2a16;
+    --muted: #5f6d4f;
+    --line: rgba(76, 99, 46, 0.12);
+    --line-strong: rgba(76, 99, 46, 0.24);
+    --brand-green: #5d9138;
+    --brand-green-deep: #3f722f;
+    --brand-yellow: #f3d74f;
+  }
+
+  body {
+    font-family: "Avenir Next", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(
+        circle at top right,
+        rgba(243, 215, 79, 0.3),
+        transparent 28%
+      ),
+      linear-gradient(180deg, #f7f6ef 0%, #eef5de 100%);
+  }
+}
+
+@layer components {
+  .panel-shell {
+    @apply rounded-[2rem] border bg-white/90 p-6 shadow-[0_30px_60px_rgba(48,83,25,0.08)] backdrop-blur;
+    border-color: var(--line);
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.28em];
+    color: var(--muted);
+  }
+
+  .page-title {
+    @apply mt-3 text-4xl font-semibold tracking-[-0.06em];
+    color: var(--ink);
+  }
+
+  .page-copy {
+    @apply mt-3 max-w-3xl text-base leading-7;
+    color: var(--muted);
+  }
+
+  .metric-card {
+    @apply rounded-[1.5rem] border p-4;
+    border-color: var(--line);
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(237, 243, 221, 0.92) 100%
+    );
+  }
+
+  .metric-label {
+    @apply text-xs font-semibold uppercase tracking-[0.24em];
+    color: var(--muted);
+  }
+
+  .metric-value {
+    @apply mt-3 text-2xl font-semibold tracking-[-0.05em];
+    color: var(--ink);
+  }
+
+  .metric-hint {
+    @apply mt-2 text-sm;
+    color: var(--muted);
+  }
+
+  .filter-tab {
+    @apply rounded-full border px-4 py-2 text-sm font-semibold transition;
+    border-color: var(--line-strong);
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .filter-tab-active {
+    @apply border-transparent;
+    background: var(--brand-green);
+    color: white;
+  }
+
+  .nav-chip {
+    @apply rounded-full border px-4 py-2 text-sm font-semibold transition;
+    border-color: var(--line);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--ink);
+  }
+
+  .nav-chip:hover {
+    border-color: var(--brand-green);
+    color: var(--brand-green);
+  }
+
+  .sidebar-shell {
+    @apply flex h-full flex-col rounded-[2rem] border bg-white/90 p-5 shadow-[0_30px_60px_rgba(48,83,25,0.08)] backdrop-blur;
+    border-color: var(--line);
+  }
+
+  .sidebar-user-card {
+    @apply rounded-[1.5rem] border px-4 py-4;
+    border-color: var(--line);
+    background: linear-gradient(
+      180deg,
+      rgba(237, 243, 221, 0.9) 0%,
+      rgba(255, 255, 255, 0.9) 100%
+    );
+  }
+
+  .sidebar-link {
+    @apply rounded-[1.25rem] border px-4 py-3 text-sm font-semibold transition;
+    border-color: transparent;
+    color: var(--ink);
+  }
+
+  .sidebar-link:hover {
+    border-color: var(--line-strong);
+    background: rgba(237, 243, 221, 0.72);
+    color: var(--brand-green-deep);
+  }
+
+  .sidebar-link-active {
+    border-color: transparent;
+    background: linear-gradient(
+      135deg,
+      var(--brand-green) 0%,
+      var(--brand-green-deep) 100%
+    );
+    color: white;
+    box-shadow: 0 20px 30px rgba(63, 114, 47, 0.18);
+  }
+
+  .action-link {
+    @apply text-sm font-semibold transition;
+    color: var(--brand-green-deep);
+  }
+
+  .action-link:hover {
+    color: var(--brand-green);
+  }
+
+  .data-table {
+    @apply min-w-full text-left text-sm;
+  }
+
+  .data-table thead th {
+    @apply px-4 py-3 text-xs font-semibold uppercase tracking-[0.22em];
+    color: var(--muted);
+  }
+
+  .data-table tbody td {
+    @apply border-t px-4 py-4 align-top;
+    border-color: var(--line);
+    color: var(--ink);
+  }
+}

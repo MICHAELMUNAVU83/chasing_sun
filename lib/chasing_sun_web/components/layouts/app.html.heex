@@ -1,0 +1,114 @@
+<%= if @current_user do %>
+  <div class="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
+    <div class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside class="sidebar-shell lg:sticky lg:top-5 lg:h-[calc(100vh-2.5rem)]">
+        <div>
+          <a href={~p"/dashboard"} class="flex items-center gap-3">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-green)] text-lg font-bold text-white shadow-[0_18px_30px_rgba(63,114,47,0.28)]">
+              CS
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
+                Greenhouse Operations
+              </p>
+              <p class="text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)]">
+                ChasingSun
+              </p>
+            </div>
+          </a>
+
+          <div class="sidebar-user-card mt-6">
+            <p class="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Signed in</p>
+            <p class="mt-3 text-base font-semibold text-[var(--ink)]">{@current_user.email}</p>
+            <p class="mt-1 text-sm text-[var(--muted)]">
+              {ChasingSun.Accounts.Scope.label(@current_user)}
+            </p>
+          </div>
+        </div>
+
+        <nav class="mt-8 flex flex-col gap-2">
+          <a href={~p"/dashboard"} class={sidebar_link_class(assigns[:page_title], "Dashboard")}>
+            Dashboard
+          </a>
+          <a
+            href={~p"/greenhouses"}
+            class={sidebar_link_class(assigns[:page_title], "Greenhouses")}
+          >
+            Greenhouses
+          </a>
+          <a
+            href={~p"/harvest-records"}
+            class={sidebar_link_class(assigns[:page_title], "Harvest Records")}
+          >
+            Harvest
+          </a>
+          <a
+            href={~p"/performance"}
+            class={sidebar_link_class(assigns[:page_title], "Performance")}
+          >
+            Performance
+          </a>
+          <a href={~p"/forecast"} class={sidebar_link_class(assigns[:page_title], "Forecast")}>
+            Forecast
+          </a>
+          <a
+            :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_crop_rules)}
+            href={~p"/admin/crop-rules"}
+            class={sidebar_link_class(assigns[:page_title], "Crop Rules")}
+          >
+            Crop Rules
+          </a>
+        </nav>
+
+        <div class="mt-auto pt-8">
+          <a href={~p"/users/settings"} class="sidebar-link">Settings</a>
+          <.link
+            method="delete"
+            href={~p"/users/log_out"}
+            class="mt-3 inline-flex w-full items-center justify-center rounded-[1.25rem] bg-[var(--ink)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--brand-green)]"
+          >
+            Log out
+          </.link>
+        </div>
+      </aside>
+
+      <main class="space-y-6">
+        <.flash_group flash={@flash} />
+        {@inner_content}
+      </main>
+    </div>
+  </div>
+<% else %>
+  <div class="mx-auto min-h-screen max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+    <header class="mb-6 rounded-[2rem] border border-[var(--line)] bg-white/90 px-5 py-4 shadow-[0_30px_60px_rgba(45,70,22,0.08)] backdrop-blur">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex items-center gap-4">
+          <a href={~p"/"} class="flex items-center gap-3">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand-green)] text-lg font-bold text-white shadow-[0_18px_30px_rgba(63,114,47,0.28)]">
+              CS
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
+                Greenhouse Operations
+              </p>
+              <p class="text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)]">
+                ChasingSun
+              </p>
+            </div>
+          </a>
+        </div>
+
+        <nav class="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--muted)]">
+          <a href={~p"/"} class="nav-chip">Home</a>
+          <a href={~p"/users/log_in"} class="nav-chip">Log in</a>
+          <a href={~p"/users/register"} class="nav-chip">Register</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <.flash_group flash={@flash} />
+      {@inner_content}
+    </main>
+  </div>
+<% end %>
