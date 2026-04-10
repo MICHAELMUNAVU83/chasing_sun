@@ -4,14 +4,18 @@ defmodule ChasingSunWeb.FormatHelpers do
   def display_value(value) when is_number(value), do: format_number(value)
   def display_value(value), do: value
 
-  def format_currency(value, opts \\ []) when is_number(value) do
+  def format_currency(value, opts \\ [])
+
+  def format_currency(value, opts) when is_number(value) do
     decimals = Keyword.get(opts, :decimals, default_decimals(value))
     "KES " <> format_number(value, decimals: decimals)
   end
 
   def format_currency(_value, opts), do: "KES " <> format_number(0, opts)
 
-  def format_number(value, opts \\ []) when is_integer(value) do
+  def format_number(value, opts \\ [])
+
+  def format_number(value, opts) when is_integer(value) do
     decimals = Keyword.get(opts, :decimals, 0)
     value
     |> decimal_string(decimals)

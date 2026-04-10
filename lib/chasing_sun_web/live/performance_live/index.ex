@@ -56,7 +56,7 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
           />
           <.summary_card
             title="Revenue estimate"
-            value={format_currency(@report.summary.total_revenue)}
+            value={format_kes(@report.summary.total_revenue)}
             hint="Derived from crop rule pricing"
             accent="ink"
           />
@@ -96,7 +96,7 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
                   <p class={variance_class(row.variance)}>{format_signed(row.variance)}</p>
                   <p class="mt-1 text-xs text-[var(--muted)]">{format_percent(row.variance_pct)}</p>
                 </td>
-                <td>{format_currency(row.revenue)}</td>
+                <td>{format_kes(row.revenue)}</td>
               </tr>
               <tr :if={Enum.empty?(@report.rows)}>
                 <td colspan="7" class="text-center text-sm text-[var(--muted)]">
@@ -139,7 +139,7 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
 
   defp format_quantity(value), do: format_number(value, decimals: 1)
 
-  defp format_currency(value), do: ChasingSunWeb.FormatHelpers.format_currency(value, decimals: 1)
+  defp format_kes(value), do: ChasingSunWeb.FormatHelpers.format_currency(value, decimals: 1)
 
   defp format_signed(value) when is_number(value) and value > 0, do: "+#{format_quantity(value)}"
   defp format_signed(value) when is_number(value), do: format_quantity(value)

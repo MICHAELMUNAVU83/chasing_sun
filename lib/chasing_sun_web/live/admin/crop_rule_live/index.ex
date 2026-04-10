@@ -10,7 +10,7 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
      socket
      |> assign(:page_title, "Crop Rules")
      |> assign(:current_rule, nil)
-      |> assign(:form_modal_open, false)
+     |> assign(:form_modal_open, false)
      |> load_rules()
      |> reset_form()}
   end
@@ -30,8 +30,8 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
     {:noreply,
      socket
      |> assign(:current_rule, nil)
-      |> reset_form()
-      |> assign(:form_modal_open, true)}
+     |> reset_form()
+     |> assign(:form_modal_open, true)}
   end
 
   def handle_event("close_form_modal", _params, socket) do
@@ -101,7 +101,12 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
             />
             <.summary_card
               title="Yield models"
-              value={Enum.count(@rules, &((&1.expected_yield_1000 || 0.0) > 0 or (&1.flat_expected_yield || 0.0) > 0))}
+              value={
+                Enum.count(
+                  @rules,
+                  &((&1.expected_yield_1000 || 0.0) > 0 or (&1.flat_expected_yield || 0.0) > 0)
+                )
+              }
               hint="Rules with seeded production logic"
               accent="ink"
             />
@@ -155,13 +160,17 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
                 <td>
                   <p>Nursery: {rule.nursery_days || 0}d</p>
                   <p class="mt-1 text-xs text-[var(--muted)]">
-                    Harvest start: {rule.days_to_harvest || 0}d · Duration: {rule.harvest_period_days || 0}d
+                    Harvest start: {rule.days_to_harvest || 0}d · Duration: {rule.harvest_period_days ||
+                      0}d
                   </p>
                 </td>
                 <td>
                   <p>1000: {format_number(rule.expected_yield_1000 || 0.0, decimals: 1)}</p>
                   <p class="mt-1 text-xs text-[var(--muted)]">
-                    2000: {format_number(rule.expected_yield_2000 || 0.0, decimals: 1)} · Flat: {format_number(rule.flat_expected_yield || 0.0, decimals: 1)}
+                    2000: {format_number(rule.expected_yield_2000 || 0.0, decimals: 1)} · Flat: {format_number(
+                      rule.flat_expected_yield || 0.0,
+                      decimals: 1
+                    )}
                   </p>
                 </td>
                 <td>{format_currency(rule.price_per_unit || 0.0, decimals: 1)}</td>
