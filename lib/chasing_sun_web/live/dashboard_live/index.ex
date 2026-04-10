@@ -314,10 +314,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp filters_for("all"), do: %{}
   defp filters_for(venture_code), do: %{venture_code: venture_code}
 
-  defp format_quantity(value) when is_number(value),
-    do: :erlang.float_to_binary(value * 1.0, decimals: 1)
-
-  defp format_quantity(_value), do: "0.0"
+  defp format_quantity(value), do: format_number(value, decimals: 1)
 
   defp format_date(nil), do: "TBD"
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")

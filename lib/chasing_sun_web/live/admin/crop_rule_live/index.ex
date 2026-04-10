@@ -159,12 +159,12 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
                   </p>
                 </td>
                 <td>
-                  <p>1000: {rule.expected_yield_1000 || 0.0}</p>
+                  <p>1000: {format_number(rule.expected_yield_1000 || 0.0, decimals: 1)}</p>
                   <p class="mt-1 text-xs text-[var(--muted)]">
-                    2000: {rule.expected_yield_2000 || 0.0} · Flat: {rule.flat_expected_yield || 0.0}
+                    2000: {format_number(rule.expected_yield_2000 || 0.0, decimals: 1)} · Flat: {format_number(rule.flat_expected_yield || 0.0, decimals: 1)}
                   </p>
                 </td>
-                <td>KES {rule.price_per_unit || 0.0}</td>
+                <td>{format_currency(rule.price_per_unit || 0.0, decimals: 1)}</td>
                 <td class="text-right">
                   <button type="button" phx-click="edit" phx-value-id={rule.id} class="action-link">
                     Edit
@@ -241,7 +241,7 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
                 field={@rule_form[:price_per_unit]}
                 type="number"
                 step="0.1"
-                label="Price per unit"
+                label="Price per unit (KES)"
                 required
               />
             </div>

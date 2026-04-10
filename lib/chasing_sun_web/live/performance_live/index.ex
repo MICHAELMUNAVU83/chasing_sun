@@ -137,15 +137,9 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
   defp variance_class(value) when value < 0, do: "font-semibold text-rose-700"
   defp variance_class(_value), do: "font-semibold text-[var(--ink)]"
 
-  defp format_quantity(value) when is_number(value),
-    do: :erlang.float_to_binary(value * 1.0, decimals: 1)
+  defp format_quantity(value), do: format_number(value, decimals: 1)
 
-  defp format_quantity(_value), do: "0.0"
-
-  defp format_currency(value) when is_number(value),
-    do: "KES #{:erlang.float_to_binary(value * 1.0, decimals: 1)}"
-
-  defp format_currency(_value), do: "KES 0.0"
+  defp format_currency(value), do: ChasingSunWeb.FormatHelpers.format_currency(value, decimals: 1)
 
   defp format_signed(value) when is_number(value) and value > 0, do: "+#{format_quantity(value)}"
   defp format_signed(value) when is_number(value), do: format_quantity(value)

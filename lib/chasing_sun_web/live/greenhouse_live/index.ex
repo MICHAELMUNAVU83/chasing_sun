@@ -259,7 +259,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
                     <% nil -> %>
                       <p class="text-[var(--muted)]">No harvest data</p>
                     <% record -> %>
-                      <p class="font-semibold text-[var(--ink)]">{record.actual_yield}</p>
+                      <p class="font-semibold text-[var(--ink)]">{format_number(record.actual_yield, decimals: 1)}</p>
                       <p class="mt-1 text-xs text-[var(--muted)]">
                         {format_date(record.week_ending_on)}
                       </p>

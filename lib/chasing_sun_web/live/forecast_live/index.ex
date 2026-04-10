@@ -222,10 +222,7 @@ defmodule ChasingSunWeb.ForecastLive.Index do
   defp next_week_units([week | _]), do: week.active_units
   defp next_week_units(_weeks), do: 0
 
-  defp format_quantity(value) when is_number(value),
-    do: :erlang.float_to_binary(value * 1.0, decimals: 1)
-
-  defp format_quantity(_value), do: "0.0"
+  defp format_quantity(value), do: format_number(value, decimals: 1)
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
