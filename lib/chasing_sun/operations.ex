@@ -60,7 +60,10 @@ defmodule ChasingSun.Operations do
 
   def get_crop_rule!(id), do: Repo.get!(CropRule, id)
 
-  def change_crop_rule(rule, attrs \\ %{}), do: CropRule.changeset(rule, attrs)
+  def change_crop_rule(rule, attrs \\ %{}) do
+    rule
+    |> CropRule.changeset(with_crop_rule_form_defaults(rule, attrs))
+  end
 
   def create_crop_rule(attrs, actor \\ nil) do
     %CropRule{}
@@ -176,6 +179,38 @@ defmodule ChasingSun.Operations do
     list_crop_rules() |> Enum.map(& &1.crop_type)
   end
 
+  def crop_varieties(crop_type, rules \\ nil)
+
+  def crop_varieties(crop_type, _rules) when crop_type in [nil, ""], do: []
+
+  def crop_varieties(crop_type, nil) do
+    crop_type
+    |> crop_rule_for()
+    |> crop_rule_varieties()
+  end
+
+  def crop_varieties(crop_type, rules) do
+    rules
+    |> crop_rule_for(crop_type)
+    |> crop_rule_varieties()
+  end
+
+  def default_variety_for_crop(crop_type, rules \\ nil)
+
+  def default_variety_for_crop(crop_type, _rules) when crop_type in [nil, ""], do: nil
+
+  def default_variety_for_crop(crop_type, nil) do
+    crop_type
+    |> crop_rule_for()
+    |> crop_rule_default_variety()
+  end
+
+  def default_variety_for_crop(crop_type, rules) do
+    rules
+    |> crop_rule_for(crop_type)
+    |> crop_rule_default_variety()
+  end
+
   def dashboard_snapshot(filters \\ %{}) do
     greenhouses = list_greenhouses(filters)
     rules = list_crop_rules()
@@ -264,6 +299,23 @@ defmodule ChasingSun.Operations do
     |> CropPlanner.normalize_cycle_attrs(rules)
   end
 
+  defp with_crop_rule_form_defaults(rule, attrs) do
+    attrs =
+      attrs
+      |> Map.new(fn {key, value} -> {to_string(key), value} end)
+
+    cond do
+      Map.has_key?(attrs, "varieties_text") ->
+        attrs
+
+      Map.has_key?(attrs, "varieties") ->
+        Map.put(attrs, "varieties_text", CropRule.varieties_to_text(attrs["varieties"]))
+
+      true ->
+        Map.put(attrs, "varieties_text", CropRule.varieties_to_text(rule.varieties || []))
+    end
+  end
+
   defp meaningful_cycle_attrs?(attrs) when attrs in [nil, %{}], do: false
 
   defp meaningful_cycle_attrs?(attrs) do
@@ -321,5 +373,28 @@ defmodule ChasingSun.Operations do
       nil -> 0.0
       cycle -> CropPlanner.expected_yield(cycle, rules)
     end
+  end
+
+  defp crop_rule_for(crop_type) do
+    Repo.get_by(CropRule, crop_type: crop_type)
+  end
+
+  defp crop_rule_for(rules, crop_type) do
+    Enum.find(rules, &(&1.crop_type == crop_type))
+  end
+
+  defp crop_rule_varieties(nil), do: []
+
+  defp crop_rule_varieties(rule) do
+    rule.varieties
+    |> List.wrap()
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.uniq()
+  end
+
+  defp crop_rule_default_variety(nil), do: nil
+
+  defp crop_rule_default_variety(rule) do
+    rule.default_variety || List.first(crop_rule_varieties(rule))
   end
 end

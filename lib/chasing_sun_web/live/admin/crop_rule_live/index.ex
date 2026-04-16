@@ -154,7 +154,10 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
                 <td>
                   <p class="font-semibold text-[var(--ink)]">{rule.crop_type}</p>
                   <p class="mt-1 text-xs text-[var(--muted)]">
-                    {rule.default_variety || "No default variety"}
+                    Default: {rule.default_variety || "No default variety"}
+                  </p>
+                  <p class="mt-1 text-xs text-[var(--muted)]">
+                    Varieties: {format_varieties(rule.varieties)}
                   </p>
                 </td>
                 <td>
@@ -209,6 +212,13 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
               <.input field={@rule_form[:crop_type]} label="Crop type" required />
               <.input field={@rule_form[:default_variety]} label="Default variety" />
             </div>
+
+            <.input
+              field={@rule_form[:varieties_text]}
+              type="textarea"
+              label="Varieties"
+              placeholder="Add one variety per line or separate with commas"
+            />
 
             <div class="grid gap-4 md:grid-cols-2">
               <.input field={@rule_form[:nursery_days]} type="number" label="Nursery days" />
@@ -287,4 +297,7 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
     end)
     |> Enum.join(", ")
   end
+
+  defp format_varieties([]), do: "No varieties configured"
+  defp format_varieties(varieties), do: Enum.join(varieties, ", ")
 end

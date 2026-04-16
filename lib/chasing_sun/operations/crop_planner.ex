@@ -9,18 +9,33 @@ defmodule ChasingSun.Operations.CropPlanner do
     crop_type = fetch_string(attrs, ["crop_type", :crop_type])
     rule = find_rule(rules, crop_type)
 
-    attrs
-    |> maybe_put(
-      "variety",
-      blank_to_nil(fetch_string(attrs, ["variety", :variety])) ||
-        rule_default(rule, :default_variety)
-    )
-    |> maybe_put("nursery_date", fetch_date(attrs, ["nursery_date", :nursery_date]))
-    |> maybe_put("transplant_date", derive_transplant_date(attrs, rule))
-    |> maybe_put("harvest_start_date", derive_harvest_start_date(attrs, rule))
-    |> maybe_put("harvest_end_date", derive_harvest_end_date(attrs, rule))
-    |> maybe_put("soil_recovery_end_date", derive_soil_recovery_end_date(attrs))
-    |> maybe_put("status_cache", derive_status(attrs))
+    normalized_attrs =
+      attrs
+      |> maybe_put(
+        "variety",
+        blank_to_nil(fetch_string(attrs, ["variety", :variety])) ||
+          rule_default_variety(rule)
+      )
+      |> maybe_put("nursery_date", fetch_date(attrs, ["nursery_date", :nursery_date]))
+      |> then(fn normalized ->
+        maybe_put(normalized, "transplant_date", derive_transplant_date(normalized, rule))
+      end)
+      |> then(fn normalized ->
+        maybe_put(normalized, "harvest_start_date", derive_harvest_start_date(normalized, rule))
+      end)
+      |> then(fn normalized ->
+        maybe_put(normalized, "harvest_end_date", derive_harvest_end_date(normalized, rule))
+      end)
+      |> then(fn normalized ->
+        maybe_put(
+          normalized,
+          "soil_recovery_end_date",
+          derive_soil_recovery_end_date(normalized)
+        )
+      end)
+
+    normalized_attrs
+    |> maybe_put("status_cache", derive_status(normalized_attrs))
   end
 
   def expected_yield(%CropCycle{} = cycle, rules),
@@ -160,8 +175,11 @@ defmodule ChasingSun.Operations.CropPlanner do
     end)
   end
 
-  defp rule_default(nil, _field), do: nil
-  defp rule_default(rule, field), do: Map.get(rule, field)
+  defp rule_default_variety(nil), do: nil
+
+  defp rule_default_variety(rule) do
+    blank_to_nil(rule.default_variety) || List.first(rule.varieties || [])
+  end
 
   defp find_rule(_rules, nil), do: nil
 

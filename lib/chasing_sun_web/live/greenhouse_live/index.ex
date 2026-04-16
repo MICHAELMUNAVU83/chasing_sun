@@ -2,7 +2,9 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
   use ChasingSunWeb, :live_view
 
   alias ChasingSun.Operations
-  alias ChasingSun.Operations.{CropCycle, Greenhouse}
+  alias ChasingSun.Operations.{CropCycle, CropPlanner, Greenhouse}
+
+  @default_tank_capacity "1000 L"
 
   @impl true
   def mount(params, _session, socket) do
@@ -13,7 +15,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
      |> assign(:page_title, "Greenhouses")
      |> assign(:current_greenhouse, nil)
      |> assign(:form_modal_open, false)
-     |> assign(:crop_types, Operations.crop_types())
+     |> load_crop_rules()
      |> load_greenhouses(venture_code)
      |> reset_forms()}
   end
@@ -47,6 +49,24 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
      |> assign(:current_greenhouse, nil)
      |> assign(:form_modal_open, false)
      |> reset_forms()}
+  end
+
+  def handle_event(
+        "form_changed",
+        %{"greenhouse" => greenhouse_params, "cycle" => cycle_params} = params,
+        socket
+      ) do
+    cycle_params =
+      normalize_cycle_form_params(socket, cycle_params, Map.get(params, "_target", []))
+
+    {:noreply,
+     socket
+     |> assign(:greenhouse_form, to_form(greenhouse_params, as: :greenhouse))
+     |> assign(:cycle_form, to_form(cycle_params, as: :cycle))
+     |> assign_cycle_selection(
+       Map.get(cycle_params, "crop_type"),
+       Map.get(cycle_params, "variety")
+     )}
   end
 
   def handle_event("save", %{"greenhouse" => greenhouse_params, "cycle" => cycle_params}, socket) do
@@ -225,7 +245,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
                 <td>
                   <p class="font-semibold text-[var(--ink)]">{greenhouse.name}</p>
                   <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    Unit {greenhouse.sequence_no} · {greenhouse.size || "size unset"}
+                    Unit {greenhouse.sequence_no} · {format_greenhouse_size(greenhouse.size)}
                   </p>
                 </td>
                 <td>
@@ -259,7 +279,9 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
                     <% nil -> %>
                       <p class="text-[var(--muted)]">No harvest data</p>
                     <% record -> %>
-                      <p class="font-semibold text-[var(--ink)]">{format_number(record.actual_yield, decimals: 1)}</p>
+                      <p class="font-semibold text-[var(--ink)]">
+                        {format_number(record.actual_yield, decimals: 1)}
+                      </p>
                       <p class="mt-1 text-xs text-[var(--muted)]">
                         {format_date(record.week_ending_on)}
                       </p>
@@ -310,12 +332,12 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
             </h2>
           </div>
 
-          <.form for={@greenhouse_form} phx-submit="save" class="space-y-5">
+          <.form for={@greenhouse_form} phx-change="form_changed" phx-submit="save" class="space-y-5">
             <div class="grid gap-4 md:grid-cols-2">
               <.input
                 field={@greenhouse_form[:sequence_no]}
                 type="number"
-                label="Sequence no"
+                label="Greenhouse number"
                 required
               />
               <.input
@@ -330,8 +352,14 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
             <.input field={@greenhouse_form[:name]} label="Greenhouse name" required />
 
             <div class="grid gap-4 md:grid-cols-2">
-              <.input field={@greenhouse_form[:size]} label="Size" placeholder="1000 plants" />
-              <.input field={@greenhouse_form[:tank]} label="Tank" placeholder="A1" />
+              <.input
+                field={@greenhouse_form[:size]}
+                type="select"
+                label="Size"
+                prompt="Choose size"
+                options={greenhouse_size_options()}
+              />
+              <.input field={@greenhouse_form[:tank]} label="Tank capacity" />
             </div>
 
             <.input field={@greenhouse_form[:active]} type="checkbox" label="Active unit" />
@@ -347,10 +375,24 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
                     type="select"
                     label="Crop type"
                     prompt="Choose crop"
-                    options={crop_type_options(@crop_types)}
+                    options={crop_type_options(@crop_rules)}
                   />
-                  <.input field={@cycle_form[:variety]} label="Variety" />
+                  <.input
+                    field={@cycle_form[:variety]}
+                    type="select"
+                    label="Variety"
+                    prompt={variety_prompt(@selected_crop_type, @variety_options)}
+                    options={select_options_for_varieties(@variety_options)}
+                    disabled={variety_select_disabled?(@selected_crop_type, @variety_options)}
+                  />
                 </div>
+
+                <p
+                  :if={@selected_crop_type != "" and Enum.empty?(@variety_options)}
+                  class="text-sm text-[var(--muted)]"
+                >
+                  No varieties are configured for {@selected_crop_type} yet. Add them in crop rules to use the dropdown.
+                </p>
 
                 <div class="grid gap-4 md:grid-cols-2">
                   <.input field={@cycle_form[:plant_count]} type="number" label="Plant count" />
@@ -388,6 +430,10 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
     """
   end
 
+  defp load_crop_rules(socket) do
+    assign(socket, :crop_rules, Operations.list_crop_rules())
+  end
+
   defp load_greenhouses(socket, venture_code) do
     assign(socket,
       selected_venture: venture_code,
@@ -400,7 +446,9 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
     assign(socket,
       form_modal_open: false,
       greenhouse_form: base_greenhouse_form(socket),
-      cycle_form: base_cycle_form(socket)
+      cycle_form: base_cycle_form(),
+      selected_crop_type: "",
+      variety_options: []
     )
   end
 
@@ -411,6 +459,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
       greenhouse_form: greenhouse_form_for(greenhouse),
       cycle_form: cycle_form_for(cycle)
     )
+    |> assign_cycle_selection(crop_type_for(cycle), variety_for(cycle))
   end
 
   defp base_greenhouse_form(socket) do
@@ -419,7 +468,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
         "sequence_no" => "",
         "name" => "",
         "size" => "",
-        "tank" => "",
+        "tank" => @default_tank_capacity,
         "venture_id" => default_venture_id(socket),
         "active" => "true"
       },
@@ -433,7 +482,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
         "sequence_no" => greenhouse.sequence_no,
         "name" => greenhouse.name,
         "size" => greenhouse.size || "",
-        "tank" => greenhouse.tank || "",
+        "tank" => greenhouse.tank || @default_tank_capacity,
         "venture_id" => greenhouse.venture_id,
         "active" => greenhouse.active
       },
@@ -441,7 +490,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
     )
   end
 
-  defp base_cycle_form(_socket) do
+  defp base_cycle_form do
     to_form(
       %{
         "crop_type" => "",
@@ -457,7 +506,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
     )
   end
 
-  defp cycle_form_for(nil), do: base_cycle_form(nil)
+  defp cycle_form_for(nil), do: base_cycle_form()
 
   defp cycle_form_for(cycle) do
     to_form(
@@ -485,7 +534,12 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
   end
 
   defp venture_options(ventures), do: Enum.map(ventures, &{&1.name, &1.id})
-  defp crop_type_options(crop_types), do: Enum.map(crop_types, &{&1, &1})
+  defp crop_type_options(crop_rules), do: Enum.map(crop_rules, &{&1.crop_type, &1.crop_type})
+
+  defp greenhouse_size_options,
+    do: Enum.map(Greenhouse.size_options(), &{format_size_label(&1), &1})
+
+  defp select_options_for_varieties(varieties), do: Enum.map(varieties, &{&1, &1})
 
   defp filter_options(ventures) do
     [
@@ -518,6 +572,149 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
 
   defp submit_label(nil), do: "Create greenhouse"
   defp submit_label(_greenhouse), do: "Save changes"
+
+  defp normalize_cycle_form_params(socket, cycle_params, target) do
+    cycle_params =
+      cycle_params
+      |> Map.new(fn {key, value} -> {to_string(key), value} end)
+      |> clear_dependent_cycle_fields(target)
+
+    crop_type = Map.get(cycle_params, "crop_type", "")
+    current_variety = Map.get(cycle_params, "variety", "")
+    crop_changed? = crop_type != socket.assigns.selected_crop_type
+    varieties = Operations.crop_varieties(crop_type, socket.assigns.crop_rules)
+
+    default_variety =
+      Operations.default_variety_for_crop(crop_type, socket.assigns.crop_rules) || ""
+
+    selected_variety =
+      cond do
+        crop_type == "" ->
+          ""
+
+        current_variety in varieties ->
+          current_variety
+
+        crop_changed? ->
+          default_variety
+
+        current_variety in [nil, ""] ->
+          default_variety
+
+        true ->
+          current_variety
+      end
+
+    cycle_params
+    |> Map.put("variety", selected_variety)
+    |> CropPlanner.normalize_cycle_attrs(socket.assigns.crop_rules)
+    |> serialize_cycle_form_params()
+  end
+
+  defp assign_cycle_selection(socket, crop_type, current_variety) do
+    varieties =
+      crop_type
+      |> Operations.crop_varieties(socket.assigns.crop_rules)
+      |> maybe_include_current_variety(current_variety)
+
+    assign(socket,
+      selected_crop_type: crop_type || "",
+      variety_options: varieties
+    )
+  end
+
+  defp maybe_include_current_variety(varieties, current_variety)
+       when current_variety in [nil, ""] do
+    varieties
+  end
+
+  defp maybe_include_current_variety(varieties, current_variety),
+    do: Enum.uniq(varieties ++ [current_variety])
+
+  defp variety_prompt("", _varieties), do: "Choose crop first"
+  defp variety_prompt(_, []), do: "No varieties configured"
+  defp variety_prompt(_, _), do: "Choose variety"
+
+  defp variety_select_disabled?("", _varieties), do: true
+  defp variety_select_disabled?(_, []), do: true
+  defp variety_select_disabled?(_, _varieties), do: false
+
+  defp crop_type_for(nil), do: ""
+  defp crop_type_for(cycle), do: cycle.crop_type || ""
+
+  defp variety_for(nil), do: ""
+  defp variety_for(cycle), do: cycle.variety || ""
+
+  defp clear_dependent_cycle_fields(cycle_params, target) do
+    case cycle_target_field(target) do
+      "crop_type" ->
+        clear_cycle_fields(cycle_params, [
+          "variety",
+          "transplant_date",
+          "harvest_start_date",
+          "harvest_end_date",
+          "soil_recovery_end_date"
+        ])
+
+      "nursery_date" ->
+        clear_cycle_fields(cycle_params, [
+          "transplant_date",
+          "harvest_start_date",
+          "harvest_end_date",
+          "soil_recovery_end_date"
+        ])
+
+      "transplant_date" ->
+        clear_cycle_fields(cycle_params, [
+          "harvest_start_date",
+          "harvest_end_date",
+          "soil_recovery_end_date"
+        ])
+
+      "harvest_start_date" ->
+        clear_cycle_fields(cycle_params, ["harvest_end_date", "soil_recovery_end_date"])
+
+      "harvest_end_date" ->
+        clear_cycle_fields(cycle_params, ["soil_recovery_end_date"])
+
+      _ ->
+        cycle_params
+    end
+  end
+
+  defp cycle_target_field(["cycle", field]), do: field
+  defp cycle_target_field(_), do: nil
+
+  defp clear_cycle_fields(cycle_params, fields) do
+    Enum.reduce(fields, cycle_params, fn field, params ->
+      Map.put(params, field, "")
+    end)
+  end
+
+  defp serialize_cycle_form_params(cycle_params) do
+    cycle_params
+    |> Map.take([
+      "crop_type",
+      "variety",
+      "plant_count",
+      "nursery_date",
+      "transplant_date",
+      "harvest_start_date",
+      "harvest_end_date",
+      "soil_recovery_end_date"
+    ])
+    |> Map.new(fn {key, value} -> {key, serialize_cycle_form_value(value)} end)
+  end
+
+  defp serialize_cycle_form_value(%Date{} = date), do: Date.to_iso8601(date)
+  defp serialize_cycle_form_value(value), do: value
+
+  defp format_greenhouse_size(nil), do: "size unset"
+  defp format_greenhouse_size(size), do: format_size_label(size)
+
+  defp format_size_label("8x40"), do: "8 x 40"
+  defp format_size_label("16x40"), do: "16 x 40"
+  defp format_size_label(size), do: size
 
   defp iso_date(nil), do: ""
   defp iso_date(%Date{} = date), do: Date.to_iso8601(date)

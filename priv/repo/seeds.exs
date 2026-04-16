@@ -11,6 +11,7 @@ rules = [
     days_to_harvest: 90,
     harvest_period_days: 150,
     default_variety: "Passarella / Ilanga",
+    varieties: ["Passarella / Ilanga", "Buffalo F1"],
     expected_yield_1000: 200.0,
     expected_yield_2000: 350.0,
     price_per_unit: 120.0,
@@ -20,6 +21,8 @@ rules = [
     crop_type: "Cucumber",
     days_to_harvest: 45,
     harvest_period_days: 120,
+    default_variety: "Centinela F1",
+    varieties: ["Centinela F1", "Kala F1"],
     expected_yield_1000: 400.0,
     expected_yield_2000: 700.0,
     price_per_unit: 90.0,
@@ -30,12 +33,20 @@ rules = [
     days_to_harvest: 60,
     harvest_period_days: 90,
     default_variety: "Mydas RZ",
+    varieties: ["Mydas RZ"],
     forced_size: "16x40",
     flat_expected_yield: 600.0,
     price_per_unit: 90.0,
     active: true
   },
-  %{crop_type: "Asparagus", flat_expected_yield: 150.0, price_per_unit: 600.0, active: true}
+  %{
+    crop_type: "Asparagus",
+    default_variety: "Mary Washington",
+    varieties: ["Mary Washington"],
+    flat_expected_yield: 150.0,
+    price_per_unit: 600.0,
+    active: true
+  }
 ]
 
 Enum.each(rules, fn attrs ->
@@ -73,7 +84,7 @@ seed_greenhouses = [
     sequence_no: 1,
     name: "Murang'a",
     size: "8x40",
-    tank: "1000L",
+    tank: "1000 L",
     venture_id: venture_id_for.("Murang'a"),
     active: true,
     cycle: %{
@@ -106,7 +117,7 @@ seed_greenhouses = [
     sequence_no: 3,
     name: "Kericho",
     size: "8x40",
-    tank: "500L",
+    tank: "500 L",
     venture_id: venture_id_for.("Kericho"),
     active: true,
     cycle: %{
@@ -123,7 +134,7 @@ seed_greenhouses = [
     sequence_no: 4,
     name: "Homa Bay",
     size: "16x40",
-    tank: "1000L",
+    tank: "1000 L",
     venture_id: venture_id_for.("Homa Bay"),
     active: true,
     cycle: %{
@@ -139,7 +150,7 @@ seed_greenhouses = [
     sequence_no: 5,
     name: "Lamu",
     size: "16x40",
-    tank: "1000L",
+    tank: "1000 L",
     venture_id: venture_id_for.("Lamu"),
     active: true,
     cycle: %{
@@ -156,7 +167,7 @@ seed_greenhouses = [
     sequence_no: 6,
     name: "Tharakanithi",
     size: "16x40",
-    tank: "1000L",
+    tank: "1000 L",
     venture_id: venture_id_for.("Tharakanithi"),
     active: true,
     cycle: %{
@@ -172,7 +183,7 @@ seed_greenhouses = [
     sequence_no: 7,
     name: "Vihiga",
     size: "16x40",
-    tank: "1000L",
+    tank: "1000 L",
     venture_id: venture_id_for.("Vihiga"),
     active: true,
     cycle: %{
@@ -189,7 +200,7 @@ seed_greenhouses = [
     sequence_no: 8,
     name: "Meru",
     size: "16x40",
-    tank: "1000L",
+    tank: "1000 L",
     venture_id: venture_id_for.("Meru"),
     active: true,
     cycle: %{
@@ -205,7 +216,7 @@ seed_greenhouses = [
     sequence_no: 9,
     name: "Kisii",
     size: "16x40",
-    tank: "1000L",
+    tank: "1000 L",
     venture_id: venture_id_for.("Kisii"),
     active: true,
     cycle: %{

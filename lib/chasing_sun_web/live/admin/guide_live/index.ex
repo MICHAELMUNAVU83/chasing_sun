@@ -179,7 +179,7 @@ defmodule ChasingSunWeb.Admin.GuideLive.Index do
           "This is the registry for greenhouse units and their current crop cycles. It controls which venture owns the unit and which cycle data feeds forecasting.",
         edit_items: [
           "Add or rename greenhouse units.",
-          "Update venture assignment, sequence number, tank, and active status.",
+          "Update venture assignment, greenhouse number, tank capacity, and active status.",
           "Edit the current crop cycle dates, plant count, crop type, and variety when a cycle changes."
         ],
         note:
