@@ -20,6 +20,10 @@ if System.get_env("PHX_SERVER") do
   config :chasing_sun, ChasingSunWeb.Endpoint, server: true
 end
 
+config :chasing_sun, ChasingSun.OpenAI,
+  api_key: System.get_env("OPENAI_API_KEY"),
+  model: System.get_env("CHASING_SUN_OPENAI_MODEL") || "gpt-4o-mini"
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

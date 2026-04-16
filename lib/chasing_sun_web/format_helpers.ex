@@ -17,6 +17,7 @@ defmodule ChasingSunWeb.FormatHelpers do
 
   def format_number(value, opts) when is_integer(value) do
     decimals = Keyword.get(opts, :decimals, 0)
+
     value
     |> decimal_string(decimals)
     |> add_commas()

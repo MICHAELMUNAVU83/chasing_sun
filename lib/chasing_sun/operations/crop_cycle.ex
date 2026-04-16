@@ -11,11 +11,17 @@ defmodule ChasingSun.Operations.CropCycle do
     field :harvest_start_date, :date
     field :harvest_end_date, :date
     field :soil_recovery_end_date, :date
-    field :status_cache, Ecto.Enum, values: [:harvesting, :soil_turning, :waiting], default: :waiting
+
+    field :status_cache, Ecto.Enum,
+      values: [:harvesting, :soil_turning, :waiting],
+      default: :waiting
+
     field :archived_at, :utc_datetime
 
     belongs_to :greenhouse, ChasingSun.Operations.Greenhouse
     has_many :harvest_records, ChasingSun.Harvesting.HarvestRecord
+    has_one :operation_recommendation, ChasingSun.Operations.OperationRecommendation
+    has_many :operation_notifications, ChasingSun.Operations.OperationNotification
 
     timestamps(type: :utc_datetime)
   end

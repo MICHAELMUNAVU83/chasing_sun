@@ -76,7 +76,8 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
               id="performance-trend-chart"
               phx-hook="ChartRenderer"
               data-chart={Jason.encode!(performance_chart(@report.rows))}
-            ></canvas>
+            >
+            </canvas>
           </div>
         </div>
 
@@ -206,7 +207,11 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
       options: %{
         scales: %{
           x: %{grid: %{display: false}, ticks: %{color: "#5f6d4f"}},
-          y: %{beginAtZero: true, grid: %{color: "rgba(76, 99, 46, 0.12)"}, ticks: %{color: "#5f6d4f"}}
+          y: %{
+            beginAtZero: true,
+            grid: %{color: "rgba(76, 99, 46, 0.12)"},
+            ticks: %{color: "#5f6d4f"}
+          }
         }
       }
     }

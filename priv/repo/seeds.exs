@@ -281,6 +281,8 @@ Enum.each(seed_harvest_records, fn attrs ->
     )
 end)
 
+Operations.refresh_daily_operations()
+
 # Script for populating the database. You can run it as:
 #
 #     mix run priv/repo/seeds.exs

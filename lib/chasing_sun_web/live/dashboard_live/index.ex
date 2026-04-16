@@ -7,6 +7,10 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   def mount(params, _session, socket) do
     venture_code = params["venture_code"] || "all"
 
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(ChasingSun.PubSub, Operations.operations_topic())
+    end
+
     {:ok,
      socket
      |> assign(:page_title, "Dashboard")
@@ -16,6 +20,15 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   @impl true
   def handle_event("filter", %{"venture_code" => venture_code}, socket) do
     {:noreply, load_dashboard(socket, venture_code)}
+  end
+
+  @impl true
+  def handle_info({:operations_refreshed, _today}, socket) do
+    {:noreply, load_dashboard(socket, socket.assigns.selected_venture)}
+  end
+
+  def handle_info({:operation_notification, _notification}, socket) do
+    {:noreply, load_dashboard(socket, socket.assigns.selected_venture)}
   end
 
   @impl true
@@ -69,43 +82,44 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         </div>
 
         <div class="panel-shell">
-          <p class="eyebrow">Next Cycle Moves</p>
+          <p class="eyebrow">Crop Planning</p>
           <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
             Immediate crop recommendations
           </h2>
+          <p class="mt-4 text-sm text-[var(--muted)]">
+            Crop rotation guidance now lives on its own page so the dashboard can stay focused on the live operating picture.
+          </p>
 
-          <div class="mt-6 space-y-4">
-            <div
-              :for={recommendation <- @forecast.recommendations}
-              class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
-            >
-              <div class="flex items-start justify-between gap-4">
-                <div>
-                  <p class="text-base font-semibold text-[var(--ink)]">
-                    {recommendation.greenhouse_name}
-                  </p>
-                  <p class="mt-1 text-sm text-[var(--muted)]">
-                    Current crop: {recommendation.current_crop}
-                  </p>
-                </div>
-                <.status_badge status="waiting" class="bg-[var(--brand-yellow)]/25 text-[var(--ink)]" />
-              </div>
-
-              <p class="mt-4 text-sm font-semibold text-[var(--brand-green-deep)]">
-                Next crop: {recommendation.next_crop}
+          <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Active recommendations
               </p>
-              <p class="mt-1 text-sm text-[var(--muted)]">
-                Harvest end: {format_date(recommendation.harvest_end_date)}
+              <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+                {length(@forecast.recommendations)}
               </p>
             </div>
 
-            <div
-              :if={Enum.empty?(@forecast.recommendations)}
-              class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
-            >
-              Seed crop cycles to unlock next-crop guidance.
+            <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Nursery in 7 days
+              </p>
+              <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+                {due_soon_count(@forecast.recommendations, :nursery_date)}
+              </p>
             </div>
           </div>
+
+          <p
+            :if={latest_generated_on(@forecast.recommendations)}
+            class="mt-4 text-sm text-[var(--muted)]"
+          >
+            Latest planning refresh: {format_date(latest_generated_on(@forecast.recommendations))}
+          </p>
+
+          <.link navigate={~p"/recommendations"} class="action-link mt-6 inline-flex">
+            Open recommendations page
+          </.link>
         </div>
       </div>
 
@@ -175,7 +189,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
               Output, status, and projection graphs
             </h2>
 
-            <div class="mt-6 grid gap-4 xl:grid-cols-2">
+            <div class="mt-6 grid gap-4 xl:grid-cols-1">
               <div class="chart-shell">
                 <p class="text-sm font-semibold text-[var(--ink)]">Expected output by greenhouse</p>
                 <div class="chart-frame">
@@ -201,7 +215,9 @@ defmodule ChasingSunWeb.DashboardLive.Index do
               </div>
 
               <div class="chart-shell">
-                <p class="text-sm font-semibold text-[var(--ink)]">Next Saturday projection vs baseline</p>
+                <p class="text-sm font-semibold text-[var(--ink)]">
+                  Next Saturday projection vs baseline
+                </p>
                 <div class="chart-frame">
                   <canvas
                     id="dashboard-projection-chart"
@@ -228,6 +244,37 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         </div>
 
         <div class="space-y-6">
+          <div class="panel-shell">
+            <p class="eyebrow">Operations Alerts</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Daily notifications
+            </h2>
+
+            <div class="mt-6 space-y-4">
+              <div
+                :for={notification <- @notifications}
+                class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
+              >
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
+                    <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
+                  </div>
+                  <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    {format_date(notification.notify_on)}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                :if={Enum.empty?(@notifications)}
+                class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+              >
+                Notifications will appear here when nursery windows open or rotations are triggered.
+              </div>
+            </div>
+          </div>
+
           <div class="panel-shell">
             <div class="flex items-center justify-between gap-4">
               <div>
@@ -322,6 +369,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
       snapshot: snapshot,
       forecast: forecast,
       greenhouse_rows: Enum.map(snapshot.greenhouses, &build_row(&1, rules)),
+      notifications: Operations.recent_operation_notifications(6, filters),
       recent_events: Operations.recent_audit_events(6)
     )
   end
@@ -380,6 +428,23 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
   defp format_datetime(%DateTime{} = datetime), do: Calendar.strftime(datetime, "%d %b %Y %H:%M")
   defp format_datetime(_datetime), do: "Unknown"
+
+  defp due_soon_count(recommendations, field) do
+    today = Date.utc_today()
+    deadline = Date.add(today, 7)
+
+    Enum.count(recommendations, fn recommendation ->
+      case Map.get(recommendation, field) do
+        %Date{} = date -> Date.compare(date, today) != :lt and Date.compare(date, deadline) != :gt
+        _ -> false
+      end
+    end)
+  end
+
+  defp latest_generated_on([]), do: nil
+
+  defp latest_generated_on(recommendations),
+    do: Enum.max_by(recommendations, & &1.generated_on).generated_on
 
   defp actor_label(event) do
     case event.actor_user do

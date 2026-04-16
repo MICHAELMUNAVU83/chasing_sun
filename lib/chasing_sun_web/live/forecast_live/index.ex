@@ -8,6 +8,10 @@ defmodule ChasingSunWeb.ForecastLive.Index do
   def mount(params, _session, socket) do
     venture_code = params["venture_code"] || "all"
 
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(ChasingSun.PubSub, Operations.operations_topic())
+    end
+
     {:ok,
      socket
      |> assign(:page_title, "Forecast")
@@ -17,6 +21,15 @@ defmodule ChasingSunWeb.ForecastLive.Index do
   @impl true
   def handle_event("filter", %{"venture_code" => venture_code}, socket) do
     {:noreply, load_forecast(socket, venture_code)}
+  end
+
+  @impl true
+  def handle_info({:operations_refreshed, _today}, socket) do
+    {:noreply, load_forecast(socket, socket.assigns.selected_venture)}
+  end
+
+  def handle_info({:operation_notification, _notification}, socket) do
+    {:noreply, load_forecast(socket, socket.assigns.selected_venture)}
   end
 
   @impl true
@@ -77,7 +90,8 @@ defmodule ChasingSunWeb.ForecastLive.Index do
                 id="forecast-weeks-chart"
                 phx-hook="ChartRenderer"
                 data-chart={Jason.encode!(forecast_chart(@forecast.weeks))}
-              ></canvas>
+              >
+              </canvas>
             </div>
           </div>
 
@@ -168,7 +182,7 @@ defmodule ChasingSunWeb.ForecastLive.Index do
                 :for={recommendation <- @forecast.recommendations}
                 class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
               >
-                <p class="font-semibold text-[var(--ink)]">{recommendation.greenhouse_name}</p>
+                <p class="font-semibold text-[var(--ink)]">{recommendation.greenhouse.name}</p>
                 <p class="mt-1 text-sm text-[var(--muted)]">
                   Current crop: {recommendation.current_crop}
                 </p>
@@ -176,8 +190,19 @@ defmodule ChasingSunWeb.ForecastLive.Index do
                   Next crop: {recommendation.next_crop}
                 </p>
                 <p class="mt-1 text-sm text-[var(--muted)]">
-                  Harvest end: {format_date(recommendation.harvest_end_date)}
+                  {recommendation.note}
                 </p>
+                <div class="mt-4 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
+                  <span :if={recommendation.nursery_date} class="rounded-full bg-white px-3 py-1">
+                    Nursery {format_date(recommendation.nursery_date)}
+                  </span>
+                  <span :if={recommendation.transplant_date} class="rounded-full bg-white px-3 py-1">
+                    Transplant {format_date(recommendation.transplant_date)}
+                  </span>
+                  <span :if={recommendation.harvest_end_date} class="rounded-full bg-white px-3 py-1">
+                    Harvest ends {format_date(recommendation.harvest_end_date)}
+                  </span>
+                </div>
               </div>
 
               <div
@@ -185,6 +210,33 @@ defmodule ChasingSunWeb.ForecastLive.Index do
                 class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
               >
                 Add crop cycles to generate next-crop suggestions.
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-shell">
+            <p class="eyebrow">Notifications</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Triggered planning alerts
+            </h2>
+
+            <div class="mt-6 space-y-4">
+              <div
+                :for={notification <- @forecast.notifications}
+                class="rounded-[1.5rem] border border-[var(--line)] p-4"
+              >
+                <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
+                <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
+                <p class="mt-3 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  {format_date(notification.notify_on)}
+                </p>
+              </div>
+
+              <div
+                :if={Enum.empty?(@forecast.notifications)}
+                class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+              >
+                Notifications appear here when daily planning checks find action for a greenhouse.
               </div>
             </div>
           </div>
@@ -270,8 +322,18 @@ defmodule ChasingSunWeb.ForecastLive.Index do
       options: %{
         scales: %{
           x: %{grid: %{display: false}, ticks: %{color: "#5f6d4f"}},
-          y: %{beginAtZero: true, position: "left", grid: %{color: "rgba(76, 99, 46, 0.12)"}, ticks: %{color: "#5f6d4f"}},
-          y1: %{beginAtZero: true, position: "right", grid: %{display: false}, ticks: %{color: "#5f6d4f"}}
+          y: %{
+            beginAtZero: true,
+            position: "left",
+            grid: %{color: "rgba(76, 99, 46, 0.12)"},
+            ticks: %{color: "#5f6d4f"}
+          },
+          y1: %{
+            beginAtZero: true,
+            position: "right",
+            grid: %{display: false},
+            ticks: %{color: "#5f6d4f"}
+          }
         }
       }
     }

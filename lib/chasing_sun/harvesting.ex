@@ -33,7 +33,10 @@ defmodule ChasingSun.Harvesting do
 
   def upsert_harvest_record(attrs, actor) do
     greenhouse = Operations.get_greenhouse!(attrs["greenhouse_id"] || attrs[:greenhouse_id])
-    crop_cycle = attrs["crop_cycle_id"] || attrs[:crop_cycle_id] || Operations.current_cycle(greenhouse)
+
+    crop_cycle =
+      attrs["crop_cycle_id"] || attrs[:crop_cycle_id] || Operations.current_cycle(greenhouse)
+
     crop_cycle_id = if is_map(crop_cycle), do: crop_cycle.id, else: crop_cycle
 
     params =
@@ -42,7 +45,11 @@ defmodule ChasingSun.Harvesting do
       |> Map.put("crop_cycle_id", crop_cycle_id)
       |> Map.put("inserted_by_user_id", actor && actor.id)
 
-    existing = Repo.get_by(HarvestRecord, greenhouse_id: greenhouse.id, week_ending_on: params["week_ending_on"])
+    existing =
+      Repo.get_by(HarvestRecord,
+        greenhouse_id: greenhouse.id,
+        week_ending_on: params["week_ending_on"]
+      )
 
     Multi.new()
     |> Multi.run(:record, fn repo, _changes ->
@@ -54,7 +61,12 @@ defmodule ChasingSun.Harvesting do
       end
     end)
     |> Multi.run(:audit, fn repo, %{record: record} ->
-      insert_audit(repo, actor, record, if(existing, do: "harvest_record_updated", else: "harvest_record_inserted"))
+      insert_audit(
+        repo,
+        actor,
+        record,
+        if(existing, do: "harvest_record_updated", else: "harvest_record_inserted")
+      )
     end)
     |> Repo.transaction()
     |> case do

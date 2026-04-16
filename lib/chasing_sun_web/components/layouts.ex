@@ -50,6 +50,27 @@ defmodule ChasingSunWeb.Layouts do
     ]
   end
 
+  def app_navigation do
+    [
+      %{title: "Dashboard", path: ~p"/dashboard"},
+      %{title: "Recommendations", path: ~p"/recommendations"},
+      %{title: "Greenhouses", path: ~p"/greenhouses"},
+      %{title: "Harvest Records", path: ~p"/harvest-records", label: "Harvest"},
+      %{title: "Performance", path: ~p"/performance"},
+      %{title: "Forecast", path: ~p"/forecast"}
+    ]
+  end
+
+  def admin_navigation do
+    [
+      %{title: "Ventures", path: ~p"/admin/ventures"},
+      %{title: "Crop Rules", path: ~p"/admin/crop-rules"},
+      %{title: "Admin Guide", path: ~p"/admin/guide"}
+    ]
+  end
+
+  def sidebar_link_label(item), do: Map.get(item, :label, item.title)
+
   def seo_title(assigns) do
     case assigns[:page_title] do
       nil -> "ChasingSun"
@@ -86,6 +107,10 @@ defmodule ChasingSunWeb.Layouts do
   defp description_for("Dashboard"),
     do:
       "Track greenhouse status, expected output, and recommended next crop actions from the ChasingSun control room."
+
+  defp description_for("Recommendations"),
+    do:
+      "Review immediate greenhouse crop rotation recommendations, nursery windows, and transplant dates in ChasingSun."
 
   defp description_for("Greenhouses"),
     do:

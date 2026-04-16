@@ -9,7 +9,9 @@ defmodule ChasingSun.Analytics.ProjectionEngine do
       |> Enum.take(-3)
       |> Enum.with_index(1)
 
-    numerator = Enum.reduce(weighted_values, 0.0, fn {value, weight}, acc -> acc + value * weight end)
+    numerator =
+      Enum.reduce(weighted_values, 0.0, fn {value, weight}, acc -> acc + value * weight end)
+
     denominator = Enum.reduce(weighted_values, 0, fn {_value, weight}, acc -> acc + weight end)
 
     numerator

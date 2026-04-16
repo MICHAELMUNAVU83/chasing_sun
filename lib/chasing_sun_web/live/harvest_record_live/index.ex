@@ -3,6 +3,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
 
   alias ChasingSun.Harvesting
   alias ChasingSun.Harvesting.HarvestRecord
+  alias ChasingSun.OpenAI
   alias ChasingSun.Operations
 
   @impl true
@@ -11,8 +12,14 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
 
     {:ok,
      socket
+     |> allow_upload(:pickup_note,
+       accept: ~w(.jpg .jpeg .png .webp),
+       max_entries: 1,
+       max_file_size: 8_000_000
+     )
      |> assign(:page_title, "Harvest Records")
      |> assign(:current_harvest_record, nil)
+     |> assign(:pickup_note_analysis, nil)
      |> assign(:form_modal_open, false)
      |> load_records(venture_code)
      |> reset_form()}
@@ -27,6 +34,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
     {:noreply,
      socket
      |> assign(:current_harvest_record, nil)
+     |> clear_pickup_note_context()
      |> reset_form()
      |> assign(:form_modal_open, true)}
   end
@@ -37,6 +45,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
     {:noreply,
      socket
      |> assign(:current_harvest_record, record)
+     |> clear_pickup_note_context()
      |> assign(:form_modal_open, true)
      |> assign(:harvest_form, harvest_form_for(record))}
   end
@@ -47,6 +56,22 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
      |> assign(:current_harvest_record, nil)
      |> assign(:form_modal_open, false)
      |> reset_form()}
+  end
+
+  def handle_event("validate_pickup_note", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_pickup_note_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :pickup_note, ref)}
+  end
+
+  def handle_event("analyze_pickup_note", _params, socket) do
+    if ChasingSunWeb.UserAuth.can?(socket.assigns.current_user, :manage_harvest) do
+      analyze_pickup_note(socket)
+    else
+      {:noreply, put_flash(socket, :error, "You do not have permission to record harvests.")}
+    end
   end
 
   def handle_event("save", %{"harvest" => harvest_params}, socket) do
@@ -141,7 +166,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
             Log harvests in a popup
           </h2>
           <p class="mt-4 text-sm leading-6 text-[var(--muted)]">
-            Keep the performance history visible while entering weekly actuals in a focused modal.
+            Keep the performance history visible while entering weekly actuals in a focused modal, or prefill the form from a pickup note image.
           </p>
 
           <div class="mt-6 space-y-4">
@@ -228,6 +253,81 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
             </h2>
           </div>
 
+          <%!-- <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-5">
+            <p class="text-sm font-semibold text-[var(--ink)]">Pickup note image</p>
+            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Upload a pickup note and let AI detect the greenhouse, harvest quantity, and any visible note details before you save the record.
+            </p>
+
+            <.form
+              for={%{}}
+              as={:pickup_note}
+              phx-change="validate_pickup_note"
+              phx-submit="analyze_pickup_note"
+              class="mt-4 space-y-4"
+            >
+              <label class="block rounded-[1.25rem] border border-dashed border-[var(--line)] bg-white px-4 py-4 text-sm text-[var(--muted)]">
+                <span class="font-semibold text-[var(--ink)]">Choose pickup note image</span>
+                <.live_file_input
+                  upload={@uploads.pickup_note}
+                  class="mt-3 block w-full text-sm text-[var(--muted)]"
+                />
+              </label>
+
+              <div
+                :for={entry <- @uploads.pickup_note.entries}
+                class="rounded-[1rem] bg-white px-4 py-3"
+              >
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <p class="text-sm font-semibold text-[var(--ink)]">{entry.client_name}</p>
+                    <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                      {entry.progress}% uploaded
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="cancel_pickup_note_upload"
+                    phx-value-ref={entry.ref}
+                    class="text-sm font-semibold text-[var(--brand-green-deep)]"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <p
+                  :for={error <- upload_errors(@uploads.pickup_note, entry)}
+                  class="mt-2 text-sm text-rose-600"
+                >
+                  {upload_error_text(error)}
+                </p>
+              </div>
+
+              <p :for={error <- upload_errors(@uploads.pickup_note)} class="text-sm text-rose-600">
+                {upload_error_text(error)}
+              </p>
+
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-[1.25rem] bg-[var(--ink)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-deep)]"
+              >
+                Analyze pickup note
+              </button>
+            </.form>
+
+            <div :if={@pickup_note_analysis} class="mt-4 rounded-[1.25rem] bg-white px-4 py-4">
+              <p class="text-sm font-semibold text-[var(--ink)]">
+                {pickup_note_heading(@pickup_note_analysis)}
+              </p>
+              <p class="mt-2 text-sm text-[var(--muted)]">
+                {pickup_note_summary(@pickup_note_analysis)}
+              </p>
+              <p class="mt-3 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Confidence {pickup_note_confidence(@pickup_note_analysis)}
+              </p>
+            </div>
+          </div> --%>
+
           <.form for={@harvest_form} phx-submit="save" class="space-y-5">
             <.input
               field={@harvest_form[:greenhouse_id]}
@@ -284,7 +384,10 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
     default_greenhouse_id =
       socket.assigns.form_greenhouses |> List.first() |> then(&((&1 && &1.id) || ""))
 
-    assign(socket,
+    socket
+    |> clear_pickup_note_uploads()
+    |> assign(:pickup_note_analysis, nil)
+    |> assign(
       form_modal_open: false,
       harvest_form:
         to_form(
@@ -372,4 +475,138 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   defp blank_fallback(nil), do: "-"
   defp blank_fallback(""), do: "-"
   defp blank_fallback(value), do: value
+
+  defp analyze_pickup_note(socket) do
+    case uploaded_entries(socket, :pickup_note) do
+      {[], []} ->
+        {:noreply, put_flash(socket, :error, "Upload a pickup note image first.")}
+
+      {_completed, [_ | _]} ->
+        {:noreply, put_flash(socket, :error, "Please wait for the image upload to finish.")}
+
+      {_completed, []} ->
+        images =
+          consume_uploaded_entries(socket, :pickup_note, fn %{path: path}, entry ->
+            {:ok,
+             %{
+               binary: File.read!(path),
+               mime_type: entry.client_type,
+               filename: entry.client_name
+             }}
+          end)
+
+        case images do
+          [image] ->
+            apply_pickup_note_analysis(socket, image)
+
+          _ ->
+            {:noreply,
+             put_flash(socket, :error, "Only one pickup note image can be analyzed at a time.")}
+        end
+    end
+  end
+
+  defp apply_pickup_note_analysis(socket, image) do
+    case OpenAI.extract_harvest_from_pickup_note(image, socket.assigns.form_greenhouses) do
+      {:ok, extracted} ->
+        flash_kind =
+          if harvest_payload_ready?(extracted), do: :info, else: :error
+
+        flash_message =
+          if harvest_payload_ready?(extracted) do
+            "Pickup note analyzed. Please confirm the pre-filled harvest record."
+          else
+            "The image was read, but the greenhouse or harvest quantity could not be matched confidently."
+          end
+
+        {:noreply,
+         socket
+         |> assign(:pickup_note_analysis, extracted)
+         |> assign(
+           :harvest_form,
+           to_form(merge_harvest_form(socket.assigns.harvest_form, extracted), as: :harvest)
+         )
+         |> put_flash(flash_kind, flash_message)}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
+  defp merge_harvest_form(form, extracted) do
+    form
+    |> harvest_form_values()
+    |> maybe_put_value("greenhouse_id", extracted["greenhouse_id"])
+    |> maybe_put_value("week_ending_on", extracted["week_ending_on"])
+    |> maybe_put_value("actual_yield", extracted["actual_yield"])
+    |> merge_notes(extracted["notes"])
+  end
+
+  defp harvest_form_values(form) do
+    %{
+      "greenhouse_id" => form[:greenhouse_id].value || "",
+      "week_ending_on" => form[:week_ending_on].value || "",
+      "actual_yield" => form[:actual_yield].value || "",
+      "notes" => form[:notes].value || ""
+    }
+  end
+
+  defp maybe_put_value(params, _key, ""), do: params
+  defp maybe_put_value(params, _key, nil), do: params
+  defp maybe_put_value(params, key, value), do: Map.put(params, key, value)
+
+  defp merge_notes(params, ""), do: params
+
+  defp merge_notes(params, note) do
+    merged_note =
+      [params["notes"], note]
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.uniq()
+      |> Enum.join("\n\n")
+
+    Map.put(params, "notes", merged_note)
+  end
+
+  defp harvest_payload_ready?(extracted) do
+    extracted["found_harvest_data"] == true and extracted["greenhouse_id"] != "" and
+      extracted["actual_yield"] not in ["", nil]
+  end
+
+  defp pickup_note_heading(extracted) do
+    case extracted["greenhouse_name"] do
+      "" -> "Pickup note parsed"
+      greenhouse_name -> "Pickup note matched to #{greenhouse_name}"
+    end
+  end
+
+  defp pickup_note_summary(extracted) do
+    extracted["notes"]
+    |> blank_fallback()
+  end
+
+  defp pickup_note_confidence(extracted) do
+    extracted["confidence"]
+    |> Kernel.*(100)
+    |> Float.round(0)
+    |> trunc()
+    |> Integer.to_string()
+    |> Kernel.<>("%")
+  end
+
+  defp clear_pickup_note_uploads(socket) do
+    Enum.reduce(socket.assigns.uploads.pickup_note.entries, socket, fn entry, acc ->
+      cancel_upload(acc, :pickup_note, entry.ref)
+    end)
+  end
+
+  defp clear_pickup_note_context(socket) do
+    socket
+    |> clear_pickup_note_uploads()
+    |> assign(:pickup_note_analysis, nil)
+  end
+
+  defp upload_error_text(:too_large), do: "This file is too large."
+  defp upload_error_text(:not_accepted), do: "Use a JPG, PNG, or WEBP image."
+  defp upload_error_text(:too_many_files), do: "Upload only one pickup note image."
+  defp upload_error_text(error), do: "Upload failed: #{inspect(error)}"
 end

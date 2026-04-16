@@ -13,9 +13,16 @@ defmodule ChasingSun.Operations do
     CropPlanner,
     CropRule,
     Greenhouse,
+    OperationNotification,
+    OperationRecommendation,
+    RecommendationEngine,
     StatusCalculator,
     Venture
   }
+
+  @operations_topic "operations:updates"
+
+  def operations_topic, do: @operations_topic
 
   def list_ventures do
     Repo.all(from venture in Venture, order_by: [asc: venture.name])
@@ -69,6 +76,7 @@ defmodule ChasingSun.Operations do
     %CropRule{}
     |> CropRule.changeset(attrs)
     |> Repo.insert()
+    |> tap(&maybe_enqueue_recommendation_refresh/1)
     |> audit_result(actor, "crop_rule", "crop_rule_saved")
   end
 
@@ -76,6 +84,7 @@ defmodule ChasingSun.Operations do
     rule
     |> CropRule.changeset(attrs)
     |> Repo.update()
+    |> tap(&maybe_enqueue_recommendation_refresh/1)
     |> audit_result(actor, "crop_rule", "crop_rule_saved")
   end
 
@@ -86,6 +95,12 @@ defmodule ChasingSun.Operations do
       from greenhouse in Greenhouse,
         preload: [
           :venture,
+          :operation_recommendation,
+          operation_notifications:
+            ^from(notification in OperationNotification,
+              order_by: [desc: notification.notify_on, desc: notification.inserted_at],
+              limit: 5
+            ),
           crop_cycles:
             ^from(cycle in CropCycle,
               where: is_nil(cycle.archived_at),
@@ -109,6 +124,12 @@ defmodule ChasingSun.Operations do
     |> Repo.get!(id)
     |> Repo.preload([
       :venture,
+      :operation_recommendation,
+      operation_notifications:
+        from(notification in OperationNotification,
+          order_by: [desc: notification.notify_on, desc: notification.inserted_at],
+          limit: 10
+        ),
       crop_cycles: from(cycle in CropCycle, order_by: [desc: cycle.inserted_at]),
       harvest_records:
         from(record in ChasingSun.Harvesting.HarvestRecord,
@@ -132,6 +153,7 @@ defmodule ChasingSun.Operations do
       })
     end)
     |> Repo.transaction()
+    |> tap(&maybe_enqueue_recommendation_refresh/1)
     |> unwrap_transaction(:greenhouse)
   end
 
@@ -153,6 +175,7 @@ defmodule ChasingSun.Operations do
       })
     end)
     |> Repo.transaction()
+    |> tap(&maybe_enqueue_recommendation_refresh/1)
     |> unwrap_transaction(:greenhouse)
   end
 
@@ -165,6 +188,7 @@ defmodule ChasingSun.Operations do
       })
     end)
     |> Repo.transaction()
+    |> tap(&maybe_enqueue_recommendation_refresh/1)
     |> unwrap_transaction(:greenhouse)
   end
 
@@ -209,6 +233,48 @@ defmodule ChasingSun.Operations do
     rules
     |> crop_rule_for(crop_type)
     |> crop_rule_default_variety()
+  end
+
+  def list_operation_recommendations(filters \\ %{}) do
+    venture_code = Map.get(filters, :venture_code) || Map.get(filters, "venture_code")
+
+    query =
+      from recommendation in OperationRecommendation,
+        join: greenhouse in assoc(recommendation, :greenhouse),
+        join: venture in assoc(greenhouse, :venture),
+        order_by: [asc: greenhouse.sequence_no]
+
+    query
+    |> maybe_filter_joined_venture(venture_code)
+    |> Repo.all()
+    |> Repo.preload(greenhouse: :venture)
+  end
+
+  def recent_operation_notifications(limit \\ 8, filters \\ %{}) do
+    venture_code = Map.get(filters, :venture_code) || Map.get(filters, "venture_code")
+
+    query =
+      from notification in OperationNotification,
+        join: greenhouse in assoc(notification, :greenhouse),
+        join: venture in assoc(greenhouse, :venture),
+        order_by: [desc: notification.notify_on, desc: notification.inserted_at],
+        limit: ^limit
+
+    query
+    |> maybe_filter_joined_venture(venture_code)
+    |> Repo.all()
+    |> Repo.preload(greenhouse: :venture)
+  end
+
+  def refresh_daily_operations(today \\ Date.utc_today()) do
+    rules = list_crop_rules()
+
+    result =
+      list_greenhouses()
+      |> Enum.map(&sync_greenhouse(&1, rules, today))
+
+    broadcast_refresh(today)
+    result
   end
 
   def dashboard_snapshot(filters \\ %{}) do
@@ -256,6 +322,14 @@ defmodule ChasingSun.Operations do
     from greenhouse in query,
       join: venture in assoc(greenhouse, :venture),
       where: venture.code == ^String.downcase(code)
+  end
+
+  defp maybe_filter_joined_venture(query, nil), do: query
+  defp maybe_filter_joined_venture(query, "all"), do: query
+  defp maybe_filter_joined_venture(query, ""), do: query
+
+  defp maybe_filter_joined_venture(query, code) do
+    from [source, greenhouse, venture] in query, where: venture.code == ^String.downcase(code)
   end
 
   defp maybe_persist_cycle(multi, greenhouse_key, cycle_attrs, rules) do
@@ -396,5 +470,201 @@ defmodule ChasingSun.Operations do
 
   defp crop_rule_default_variety(rule) do
     rule.default_variety || List.first(crop_rule_varieties(rule))
+  end
+
+  defp sync_greenhouse(%Greenhouse{} = greenhouse, rules, today) do
+    case current_cycle(greenhouse) do
+      nil ->
+        delete_recommendation_for_greenhouse(greenhouse.id)
+        %{greenhouse_id: greenhouse.id, recommendation: nil, notifications: []}
+
+      %CropCycle{} = cycle ->
+        cycle = sync_status_cache(cycle, today)
+        {cycle, rotation_notification} = maybe_rotate_cycle(greenhouse, cycle, rules, today)
+        cycle = sync_status_cache(cycle, today)
+        recommendation = upsert_recommendation(greenhouse, cycle, rules, today)
+
+        recommendation_notification =
+          maybe_insert_recommendation_notification(greenhouse, cycle, recommendation, today)
+
+        %{
+          greenhouse_id: greenhouse.id,
+          recommendation: recommendation,
+          notifications:
+            Enum.reject([rotation_notification, recommendation_notification], &is_nil/1)
+        }
+    end
+  end
+
+  defp sync_status_cache(%CropCycle{} = cycle, today) do
+    status = StatusCalculator.status_for_cycle(cycle, today)
+
+    if cycle.status_cache == status do
+      %{cycle | status_cache: status}
+    else
+      Repo.update!(CropCycle.changeset(cycle, %{status_cache: status}))
+    end
+  end
+
+  defp maybe_rotate_cycle(%Greenhouse{} = greenhouse, %CropCycle{} = cycle, rules, today) do
+    if RecommendationEngine.rotation_due?(cycle, today) do
+      recommendation = RecommendationEngine.build_recommendation(greenhouse, cycle, rules, today)
+
+      next_cycle_attrs =
+        recommendation_to_cycle_attrs(recommendation, greenhouse.id, cycle.plant_count)
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      Repo.transaction(fn ->
+        archived_cycle =
+          cycle
+          |> CropCycle.changeset(%{archived_at: now})
+          |> Repo.update!()
+
+        new_cycle =
+          %CropCycle{}
+          |> CropCycle.changeset(next_cycle_attrs)
+          |> Repo.insert!()
+
+        notification =
+          insert_notification(%{
+            greenhouse_id: greenhouse.id,
+            crop_cycle_id: archived_cycle.id,
+            kind: "auto_rotated",
+            message:
+              "Soil recovery ended for #{greenhouse.name}. The crop changed from #{cycle.crop_type} to #{new_cycle.crop_type} and the new cycle dates are now active.",
+            notify_on: today,
+            sent_at: now,
+            metadata: %{
+              "from_crop" => cycle.crop_type,
+              "to_crop" => new_cycle.crop_type,
+              "new_cycle_id" => new_cycle.id
+            }
+          })
+
+        {new_cycle, notification}
+      end)
+      |> case do
+        {:ok, {new_cycle, notification}} ->
+          {new_cycle, notification}
+
+        {:error, _step, %Ecto.Changeset{} = changeset, _changes} ->
+          raise Ecto.InvalidChangesetError, action: :insert, changeset: changeset
+
+        {:error, _step, reason, _changes} ->
+          raise "failed to rotate greenhouse cycle: #{inspect(reason)}"
+      end
+    else
+      {cycle, nil}
+    end
+  end
+
+  defp upsert_recommendation(%Greenhouse{} = greenhouse, %CropCycle{} = cycle, rules, today) do
+    attrs = RecommendationEngine.build_recommendation(greenhouse, cycle, rules, today)
+
+    case Repo.get_by(OperationRecommendation, greenhouse_id: greenhouse.id) do
+      nil ->
+        %OperationRecommendation{}
+        |> OperationRecommendation.changeset(attrs)
+        |> Repo.insert!()
+
+      recommendation ->
+        recommendation
+        |> OperationRecommendation.changeset(attrs)
+        |> Repo.update!()
+    end
+  end
+
+  defp delete_recommendation_for_greenhouse(greenhouse_id) do
+    case Repo.get_by(OperationRecommendation, greenhouse_id: greenhouse_id) do
+      nil -> :ok
+      recommendation -> Repo.delete!(recommendation)
+    end
+  end
+
+  defp recommendation_to_cycle_attrs(recommendation, greenhouse_id, plant_count) do
+    %{
+      greenhouse_id: greenhouse_id,
+      crop_type: recommendation.next_crop,
+      variety: recommendation.next_variety,
+      plant_count: plant_count,
+      nursery_date: recommendation.nursery_date,
+      transplant_date: recommendation.transplant_date,
+      harvest_start_date: recommendation.harvest_start_date,
+      harvest_end_date: recommendation.harvest_end_date,
+      soil_recovery_end_date: recommendation.soil_recovery_end_date,
+      status_cache:
+        StatusCalculator.status_for_cycle(%CropCycle{
+          crop_type: recommendation.next_crop,
+          harvest_start_date: recommendation.harvest_start_date,
+          harvest_end_date: recommendation.harvest_end_date,
+          soil_recovery_end_date: recommendation.soil_recovery_end_date
+        })
+    }
+  end
+
+  defp maybe_insert_recommendation_notification(
+         %Greenhouse{} = greenhouse,
+         %CropCycle{} = cycle,
+         recommendation,
+         today
+       ) do
+    case RecommendationEngine.notification_payload(cycle, recommendation, today) do
+      nil ->
+        nil
+
+      payload ->
+        insert_notification(%{
+          greenhouse_id: greenhouse.id,
+          crop_cycle_id: cycle.id,
+          kind: payload.kind,
+          message: payload.message,
+          notify_on: today,
+          sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          metadata: payload.metadata
+        })
+    end
+  end
+
+  defp insert_notification(attrs) do
+    case Repo.get_by(OperationNotification,
+           greenhouse_id: attrs.greenhouse_id,
+           crop_cycle_id: attrs.crop_cycle_id,
+           kind: attrs.kind
+         ) do
+      nil ->
+        notification =
+          %OperationNotification{}
+          |> OperationNotification.changeset(attrs)
+          |> Repo.insert!()
+          |> Repo.preload(greenhouse: :venture)
+
+        broadcast_notification(notification)
+        notification
+
+      notification ->
+        notification
+    end
+  end
+
+  defp maybe_enqueue_recommendation_refresh({:ok, _result}) do
+    case Process.whereis(ChasingSun.Operations.RecommendationServer) do
+      nil -> :ok
+      _pid -> ChasingSun.Operations.RecommendationServer.refresh_now()
+    end
+  end
+
+  defp maybe_enqueue_recommendation_refresh(_result), do: :ok
+
+  defp broadcast_refresh(today) do
+    Phoenix.PubSub.broadcast(ChasingSun.PubSub, @operations_topic, {:operations_refreshed, today})
+  end
+
+  defp broadcast_notification(notification) do
+    Phoenix.PubSub.broadcast(
+      ChasingSun.PubSub,
+      @operations_topic,
+      {:operation_notification, notification}
+    )
   end
 end

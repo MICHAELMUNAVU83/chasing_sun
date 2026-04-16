@@ -29,6 +29,7 @@ defmodule ChasingSunWeb.Router do
       pipe_through [:browser, :require_authenticated_user]
 
       live "/dashboard", DashboardLive.Index, :index
+      live "/recommendations", RecommendationLive.Index, :index
       live "/greenhouses", GreenhouseLive.Index, :index
       live "/harvest-records", HarvestRecordLive.Index, :index
       live "/performance", PerformanceLive.Index, :index

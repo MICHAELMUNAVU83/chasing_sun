@@ -10,6 +10,10 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
   def mount(params, _session, socket) do
     venture_code = params["venture_code"] || "all"
 
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(ChasingSun.PubSub, Operations.operations_topic())
+    end
+
     {:ok,
      socket
      |> assign(:page_title, "Greenhouses")
@@ -142,6 +146,15 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
     else
       {:noreply, put_flash(socket, :error, "Only admins can delete greenhouses.")}
     end
+  end
+
+  @impl true
+  def handle_info({:operations_refreshed, _today}, socket) do
+    {:noreply, load_greenhouses(socket, socket.assigns.selected_venture)}
+  end
+
+  def handle_info({:operation_notification, _notification}, socket) do
+    {:noreply, load_greenhouses(socket, socket.assigns.selected_venture)}
   end
 
   @impl true
@@ -315,6 +328,65 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div class="panel-shell">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="eyebrow">Operations Recommendations</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Daily crop rotation guidance by unit
+            </h2>
+          </div>
+          <p class="text-sm text-[var(--muted)]">Updated by the daily planning service.</p>
+        </div>
+
+        <div class="mt-6 grid gap-4 xl:grid-cols-2">
+          <div
+            :for={greenhouse <- @greenhouses}
+            class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
+          >
+            <p class="font-semibold text-[var(--ink)]">{greenhouse.name}</p>
+            <%= case greenhouse.operation_recommendation do %>
+              <% nil -> %>
+                <p class="mt-2 text-sm text-[var(--muted)]">
+                  No recommendation yet. Add an active crop cycle to plan the next move.
+                </p>
+              <% recommendation -> %>
+                <p class="mt-2 text-sm text-[var(--muted)]">
+                  Current crop: {recommendation.current_crop}
+                </p>
+                <p class="mt-3 text-sm font-semibold text-[var(--brand-green-deep)]">
+                  Next crop: {recommendation.next_crop}
+                </p>
+                <p class="mt-2 text-sm text-[var(--muted)]">{recommendation.note}</p>
+                <div class="mt-4 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
+                  <span :if={recommendation.nursery_date} class="rounded-full bg-white px-3 py-1">
+                    Nursery {format_date(recommendation.nursery_date)}
+                  </span>
+                  <span :if={recommendation.transplant_date} class="rounded-full bg-white px-3 py-1">
+                    Transplant {format_date(recommendation.transplant_date)}
+                  </span>
+                  <span
+                    :if={recommendation.harvest_start_date}
+                    class="rounded-full bg-white px-3 py-1"
+                  >
+                    Harvest starts {format_date(recommendation.harvest_start_date)}
+                  </span>
+                  <span :if={recommendation.harvest_end_date} class="rounded-full bg-white px-3 py-1">
+                    Harvest ends {format_date(recommendation.harvest_end_date)}
+                  </span>
+                </div>
+            <% end %>
+          </div>
+
+          <div
+            :if={Enum.empty?(@greenhouses)}
+            class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+          >
+            No greenhouses found for the current filter.
+          </div>
         </div>
       </div>
 

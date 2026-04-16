@@ -16,7 +16,14 @@ defmodule ChasingSun.Harvesting.HarvestRecord do
 
   def changeset(harvest_record, attrs) do
     harvest_record
-    |> cast(attrs, [:greenhouse_id, :crop_cycle_id, :week_ending_on, :actual_yield, :notes, :inserted_by_user_id])
+    |> cast(attrs, [
+      :greenhouse_id,
+      :crop_cycle_id,
+      :week_ending_on,
+      :actual_yield,
+      :notes,
+      :inserted_by_user_id
+    ])
     |> validate_required([:greenhouse_id, :week_ending_on, :actual_yield])
     |> validate_number(:actual_yield, greater_than_or_equal_to: 0)
     |> unique_constraint([:greenhouse_id, :week_ending_on])

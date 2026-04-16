@@ -15,6 +15,7 @@ defmodule ChasingSun.Application do
       {Phoenix.PubSub, name: ChasingSun.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: ChasingSun.Finch},
+      ChasingSun.Operations.RecommendationServer,
       # Start a worker by calling: ChasingSun.Worker.start_link(arg)
       # {ChasingSun.Worker, arg},
       # Start to serve requests, typically the last entry

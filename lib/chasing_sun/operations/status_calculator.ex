@@ -5,9 +5,15 @@ defmodule ChasingSun.Operations.StatusCalculator do
 
   def status_for_cycle(%CropCycle{} = cycle, today \\ Date.utc_today()) do
     cond do
-      between?(today, cycle.harvest_start_date, cycle.harvest_end_date) -> :harvesting
-      after_or_equal?(today, next_day(cycle.harvest_end_date)) and on_or_before?(today, cycle.soil_recovery_end_date) -> :soil_turning
-      true -> :waiting
+      between?(today, cycle.harvest_start_date, cycle.harvest_end_date) ->
+        :harvesting
+
+      after_or_equal?(today, next_day(cycle.harvest_end_date)) and
+          on_or_before?(today, cycle.soil_recovery_end_date) ->
+        :soil_turning
+
+      true ->
+        :waiting
     end
   end
 

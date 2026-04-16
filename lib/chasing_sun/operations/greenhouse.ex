@@ -14,6 +14,8 @@ defmodule ChasingSun.Operations.Greenhouse do
     belongs_to :venture, ChasingSun.Operations.Venture
     has_many :crop_cycles, ChasingSun.Operations.CropCycle
     has_many :harvest_records, ChasingSun.Harvesting.HarvestRecord
+    has_one :operation_recommendation, ChasingSun.Operations.OperationRecommendation
+    has_many :operation_notifications, ChasingSun.Operations.OperationNotification
 
     timestamps(type: :utc_datetime)
   end
