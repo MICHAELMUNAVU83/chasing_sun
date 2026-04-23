@@ -7,16 +7,29 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
   @impl true
   def mount(params, _session, socket) do
     venture_code = params["venture_code"] || "all"
+    history_filter = default_history_filter()
 
     {:ok,
      socket
      |> assign(:page_title, "Performance")
-     |> load_report(venture_code)}
+     |> load_report(venture_code, history_filter)}
   end
 
   @impl true
   def handle_event("filter", %{"venture_code" => venture_code}, socket) do
-    {:noreply, load_report(socket, venture_code)}
+    {:noreply, load_report(socket, venture_code, socket.assigns.history_filter)}
+  end
+
+  def handle_event("history_preset", %{"preset" => preset}, socket) do
+    {:noreply, load_report(socket, socket.assigns.selected_venture, history_preset(preset))}
+  end
+
+  def handle_event("history_range", %{"history" => params}, socket) do
+    {:noreply, load_report(socket, socket.assigns.selected_venture, history_range(params))}
+  end
+
+  def handle_event("select_week", %{"date" => date}, socket) do
+    {:noreply, load_report(socket, socket.assigns.selected_venture, history_week(date))}
   end
 
   @impl true
@@ -60,6 +73,195 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
             hint="Derived from crop rule pricing"
             accent="ink"
           />
+        </div>
+      </div>
+
+      <div class="panel-shell">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p class="eyebrow">Harvest History Explorer</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Past harvest records by Saturday
+            </h2>
+            <p class="mt-3 max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Select one Saturday or choose a date range to see total harvest and the exact units
+              that removed fruits during that period.
+            </p>
+          </div>
+
+          <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--muted)]">
+            Showing <span class="font-semibold text-[var(--ink)]">{@history_filter.label}</span>
+          </div>
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-2">
+          <button
+            type="button"
+            phx-click="history_preset"
+            phx-value-preset="all"
+            class={history_preset_class(@history_filter, "all")}
+          >
+            All records
+          </button>
+          <button
+            type="button"
+            phx-click="history_preset"
+            phx-value-preset="past_2_weeks"
+            class={history_preset_class(@history_filter, "past_2_weeks")}
+          >
+            Past 2 weeks
+          </button>
+          <button
+            type="button"
+            phx-click="history_preset"
+            phx-value-preset="last_8_weeks"
+            class={history_preset_class(@history_filter, "last_8_weeks")}
+          >
+            Last 8 weeks
+          </button>
+          <button
+            type="button"
+            phx-click="history_preset"
+            phx-value-preset="mar_may"
+            class={history_preset_class(@history_filter, "mar_may")}
+          >
+            Mar-May
+          </button>
+        </div>
+
+        <.form
+          for={@history_form}
+          phx-submit="history_range"
+          class="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto]"
+        >
+          <label class="block">
+            <span class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+              Start date
+            </span>
+            <input
+              type="date"
+              name="history[start_date]"
+              value={@history_form[:start_date].value}
+              class="mt-2 w-full rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--ink)]"
+            />
+          </label>
+          <label class="block">
+            <span class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+              End date
+            </span>
+            <input
+              type="date"
+              name="history[end_date]"
+              value={@history_form[:end_date].value}
+              class="mt-2 w-full rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--ink)]"
+            />
+          </label>
+          <button
+            type="submit"
+            class="self-end rounded-full bg-[var(--brand-green)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-deep)]"
+          >
+            Apply range
+          </button>
+        </.form>
+
+        <div class="mt-6 grid gap-4 md:grid-cols-3">
+          <div class="rounded-[1.5rem] border border-[var(--line)] bg-white/70 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+              Period harvest
+            </p>
+            <p class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              {format_quantity(@report.summary.total_actual)}
+            </p>
+          </div>
+          <div class="rounded-[1.5rem] border border-[var(--line)] bg-white/70 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+              Units removing fruits
+            </p>
+            <p class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              {@history_summary.unit_count}
+            </p>
+            <p class="mt-2 text-sm text-[var(--muted)]">
+              {unit_names(@history_summary.unit_names)}
+            </p>
+          </div>
+          <div class="rounded-[1.5rem] border border-[var(--line)] bg-white/70 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+              Harvest Saturdays
+            </p>
+            <p class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              {@history_summary.week_count}
+            </p>
+          </div>
+        </div>
+
+        <div
+          :if={not Enum.empty?(@history_summary.unit_breakdown)}
+          class="mt-6 rounded-[1.75rem] border border-[var(--line)] bg-white/70 p-4"
+        >
+          <div class="flex items-center justify-between gap-4">
+            <p class="text-sm font-semibold text-[var(--ink)]">Yield by greenhouse (selected view)</p>
+            <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Top {min(length(@history_summary.unit_breakdown), 10)}
+            </p>
+          </div>
+
+          <div class="mt-4 grid gap-3 md:grid-cols-2">
+            <div
+              :for={unit <- Enum.take(@history_summary.unit_breakdown, 10)}
+              class="flex items-start justify-between gap-4 rounded-[1.25rem] border border-[var(--line)] bg-white/60 px-4 py-3"
+            >
+              <div>
+                <p class="font-semibold text-[var(--ink)]">{unit.greenhouse_name}</p>
+                <p class="mt-1 text-xs text-[var(--muted)]">
+                  {unit.week_count} Saturday{plural_suffix(unit.week_count)} in selection
+                </p>
+              </div>
+              <p class="text-sm font-semibold text-[var(--brand-green-deep)]">
+                {format_quantity(unit.actual_yield)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <div class="flex items-center justify-between gap-4">
+            <p class="text-sm font-semibold text-[var(--ink)]">Clickable Saturday calendar</p>
+            <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              {length(@history_groups)} dates
+            </p>
+          </div>
+
+          <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <button
+              :for={group <- @history_groups}
+              type="button"
+              phx-click="select_week"
+              phx-value-date={Date.to_iso8601(group.week_ending_on)}
+              class={history_week_class(@history_filter, group.week_ending_on)}
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="text-left">
+                  <p class="font-semibold text-[var(--ink)]">{format_date(group.week_ending_on)}</p>
+                  <p class="mt-1 text-xs text-[var(--muted)]">
+                    {group.unit_count} unit{plural_suffix(group.unit_count)} removed fruits
+                  </p>
+                </div>
+                <p class="text-sm font-semibold text-[var(--brand-green-deep)]">
+                  {format_quantity(group.actual_yield)}
+                </p>
+              </div>
+              <p class="mt-3 text-left text-xs leading-5 text-[var(--muted)]">
+                {unit_names(group.unit_names)}
+              </p>
+            </button>
+          </div>
+
+          <div
+            :if={Enum.empty?(@history_groups)}
+            class="mt-4 rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+          >
+            No Saturday harvest records are available for this venture and date selection.
+          </div>
         </div>
       </div>
 
@@ -123,11 +325,22 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
     """
   end
 
-  defp load_report(socket, venture_code) do
+  defp load_report(socket, venture_code, history_filter) do
+    filters = filters_for(venture_code)
+
+    report =
+      Analytics.performance_report(Map.merge(filters, history_filter_params(history_filter)))
+
+    history_groups = history_groups_for(filters, history_filter)
+
     assign(socket,
       selected_venture: venture_code,
       ventures: Operations.list_ventures(),
-      report: Analytics.performance_report(filters_for(venture_code))
+      report: report,
+      history_filter: history_filter,
+      history_form: history_form(history_filter),
+      history_groups: history_groups,
+      history_summary: history_summary(report.rows)
     )
   end
 
@@ -144,6 +357,212 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
 
   defp filters_for("all"), do: %{}
   defp filters_for(venture_code), do: %{venture_code: venture_code}
+
+  defp default_history_filter do
+    %{
+      preset: "all",
+      start_date: nil,
+      end_date: nil,
+      selected_week: nil,
+      label: "all harvest records"
+    }
+  end
+
+  defp history_preset("past_2_weeks") do
+    today = Date.utc_today()
+    start_date = Date.add(today, -14)
+
+    %{
+      preset: "past_2_weeks",
+      start_date: start_date,
+      end_date: today,
+      selected_week: nil,
+      label: "past 2 weeks"
+    }
+  end
+
+  defp history_preset("last_8_weeks") do
+    today = Date.utc_today()
+    start_date = Date.add(today, -56)
+
+    %{
+      preset: "last_8_weeks",
+      start_date: start_date,
+      end_date: today,
+      selected_week: nil,
+      label: "last 8 weeks"
+    }
+  end
+
+  defp history_preset("mar_may") do
+    year = Date.utc_today().year
+    {:ok, start_date} = Date.new(year, 3, 1)
+    {:ok, end_date} = Date.new(year, 5, 31)
+
+    %{
+      preset: "mar_may",
+      start_date: start_date,
+      end_date: end_date,
+      selected_week: nil,
+      label: "Mar-May #{year}"
+    }
+  end
+
+  defp history_preset(_preset), do: default_history_filter()
+
+  defp history_range(params) do
+    start_date = parse_date(params["start_date"])
+    end_date = parse_date(params["end_date"])
+
+    {start_date, end_date} =
+      case {start_date, end_date} do
+        {%Date{} = start_date, %Date{} = end_date} ->
+          if Date.compare(start_date, end_date) == :gt,
+            do: {end_date, start_date},
+            else: {start_date, end_date}
+
+        dates ->
+          dates
+      end
+
+    %{
+      preset: "custom",
+      start_date: start_date,
+      end_date: end_date,
+      selected_week: nil,
+      label: range_label(start_date, end_date)
+    }
+  end
+
+  defp history_week(date) do
+    selected_week = parse_date(date)
+
+    %{
+      preset: "week",
+      start_date: nil,
+      end_date: nil,
+      selected_week: selected_week,
+      label: "harvest on #{format_date(selected_week)}"
+    }
+  end
+
+  defp history_filter_params(%{selected_week: %Date{} = selected_week}) do
+    %{week_ending_on: selected_week}
+  end
+
+  defp history_filter_params(%{start_date: start_date, end_date: end_date}) do
+    %{}
+    |> maybe_put_date(:start_date, start_date)
+    |> maybe_put_date(:end_date, end_date)
+  end
+
+  defp history_calendar_params(%{preset: "week"}), do: %{}
+  defp history_calendar_params(history_filter), do: history_filter_params(history_filter)
+
+  defp history_groups_for(filters, history_filter) do
+    filters
+    |> Map.merge(history_calendar_params(history_filter))
+    |> Analytics.performance_report()
+    |> Map.fetch!(:rows)
+    |> history_groups()
+  end
+
+  defp history_groups(rows) do
+    rows
+    |> Enum.group_by(& &1.week_ending_on)
+    |> Enum.map(fn {week_ending_on, week_rows} ->
+      unit_names =
+        week_rows
+        |> Enum.map(& &1.greenhouse_name)
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      %{
+        week_ending_on: week_ending_on,
+        actual_yield: Enum.reduce(week_rows, 0.0, &(&1.actual_yield + &2)),
+        unit_count: length(unit_names),
+        unit_names: unit_names
+      }
+    end)
+    |> Enum.sort_by(& &1.week_ending_on, {:desc, Date})
+  end
+
+  defp history_summary(rows) do
+    unit_groups = Enum.group_by(rows, & &1.greenhouse_name)
+
+    unit_names =
+      unit_groups
+      |> Map.keys()
+      |> Enum.sort()
+
+    unit_breakdown =
+      unit_groups
+      |> Enum.map(fn {greenhouse_name, unit_rows} ->
+        %{
+          greenhouse_name: greenhouse_name,
+          actual_yield: Enum.reduce(unit_rows, 0.0, &(&1.actual_yield + &2)),
+          week_count: unit_rows |> Enum.map(& &1.week_ending_on) |> Enum.uniq() |> length()
+        }
+      end)
+      |> Enum.sort_by(& &1.actual_yield, :desc)
+
+    %{
+      unit_count: length(unit_names),
+      unit_names: unit_names,
+      week_count: rows |> Enum.map(& &1.week_ending_on) |> Enum.uniq() |> length(),
+      unit_breakdown: unit_breakdown
+    }
+  end
+
+  defp history_form(history_filter) do
+    to_form(
+      %{
+        "start_date" => date_input_value(history_filter.start_date),
+        "end_date" => date_input_value(history_filter.end_date)
+      },
+      as: :history
+    )
+  end
+
+  defp history_preset_class(%{preset: preset}, preset), do: "filter-tab filter-tab-active"
+  defp history_preset_class(_history_filter, _preset), do: "filter-tab"
+
+  defp history_week_class(%{selected_week: selected_week}, week_ending_on)
+       when selected_week == week_ending_on do
+    "rounded-[1.5rem] border border-[var(--brand-green)] bg-[var(--surface-soft)] p-4 transition"
+  end
+
+  defp history_week_class(_history_filter, _week_ending_on) do
+    "rounded-[1.5rem] border border-[var(--line)] bg-white/70 p-4 transition hover:border-[var(--brand-green)] hover:bg-[var(--surface-soft)]"
+  end
+
+  defp unit_names([]), do: "No units in this selection"
+  defp unit_names(names), do: Enum.join(names, ", ")
+
+  defp range_label(nil, nil), do: "all harvest records"
+  defp range_label(%Date{} = start_date, nil), do: "from #{format_date(start_date)}"
+  defp range_label(nil, %Date{} = end_date), do: "through #{format_date(end_date)}"
+
+  defp range_label(%Date{} = start_date, %Date{} = end_date) do
+    "#{format_date(start_date)} to #{format_date(end_date)}"
+  end
+
+  defp maybe_put_date(params, _key, nil), do: params
+  defp maybe_put_date(params, key, %Date{} = date), do: Map.put(params, key, date)
+
+  defp date_input_value(%Date{} = date), do: Date.to_iso8601(date)
+  defp date_input_value(_date), do: ""
+
+  defp parse_date(%Date{} = date), do: date
+
+  defp parse_date(value) when is_binary(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} -> date
+      _error -> nil
+    end
+  end
+
+  defp parse_date(_value), do: nil
 
   defp variance_class(value) when value > 0, do: "font-semibold text-emerald-700"
   defp variance_class(value) when value < 0, do: "font-semibold text-rose-700"
@@ -164,6 +583,9 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
+
+  defp plural_suffix(1), do: ""
+  defp plural_suffix(_count), do: "s"
 
   defp performance_chart(rows) do
     monthly_points =

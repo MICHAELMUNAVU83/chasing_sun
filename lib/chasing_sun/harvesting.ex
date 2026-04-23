@@ -12,10 +12,16 @@ defmodule ChasingSun.Harvesting do
 
   def list_harvest_records(filters \\ %{}) do
     venture_code = Map.get(filters, :venture_code) || Map.get(filters, "venture_code")
+    week_ending_on = Map.get(filters, :week_ending_on) || Map.get(filters, "week_ending_on")
+    start_date = Map.get(filters, :start_date) || Map.get(filters, "start_date")
+    end_date = Map.get(filters, :end_date) || Map.get(filters, "end_date")
 
     HarvestRecord
     |> join(:inner, [record], greenhouse in assoc(record, :greenhouse))
     |> maybe_filter_venture(venture_code)
+    |> maybe_filter_week(week_ending_on)
+    |> maybe_filter_start_date(start_date)
+    |> maybe_filter_end_date(end_date)
     |> preload([record, greenhouse], [:crop_cycle, :inserted_by_user, greenhouse: :venture])
     |> order_by([record], desc: record.week_ending_on, desc: record.updated_at)
     |> Repo.all()
@@ -96,6 +102,33 @@ defmodule ChasingSun.Harvesting do
       join: venture in assoc(greenhouse, :venture),
       where: venture.code == ^String.downcase(code)
   end
+
+  defp maybe_filter_week(query, nil), do: query
+  defp maybe_filter_week(query, ""), do: query
+
+  defp maybe_filter_week(query, week_ending_on) do
+    from [record, _greenhouse] in query,
+      where: record.week_ending_on == ^coerce_date!(week_ending_on)
+  end
+
+  defp maybe_filter_start_date(query, nil), do: query
+  defp maybe_filter_start_date(query, ""), do: query
+
+  defp maybe_filter_start_date(query, start_date) do
+    from [record, _greenhouse] in query,
+      where: record.week_ending_on >= ^coerce_date!(start_date)
+  end
+
+  defp maybe_filter_end_date(query, nil), do: query
+  defp maybe_filter_end_date(query, ""), do: query
+
+  defp maybe_filter_end_date(query, end_date) do
+    from [record, _greenhouse] in query,
+      where: record.week_ending_on <= ^coerce_date!(end_date)
+  end
+
+  defp coerce_date!(%Date{} = date), do: date
+  defp coerce_date!(date) when is_binary(date), do: Date.from_iso8601!(date)
 
   defp insert_audit(repo, %User{id: actor_user_id}, record, action) do
     %AuditEvent{}

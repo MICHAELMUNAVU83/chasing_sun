@@ -64,7 +64,7 @@ defmodule ChasingSunWeb.ForecastLive.Index do
           <.summary_card
             title="Peak week"
             value={peak_week_label(@forecast.weeks)}
-            hint="Highest expected weekly output"
+            hint={peak_week_hint(@peak_week)}
             accent="yellow"
           />
           <.summary_card
@@ -135,6 +135,49 @@ defmodule ChasingSunWeb.ForecastLive.Index do
         </div>
 
         <div class="space-y-6">
+          <div class="panel-shell">
+            <p class="eyebrow">Peak Week</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Why this week peaks
+            </h2>
+
+            <%= if @peak_week do %>
+              <div class="mt-6 rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-5">
+                <p class="text-sm leading-6 text-[var(--muted)]">
+                  {peak_week_reason(@peak_week)}
+                </p>
+              </div>
+
+              <div class="mt-6 space-y-4">
+                <div
+                  :for={contributor <- @peak_week.contributors}
+                  class="rounded-[1.5rem] border border-[var(--line)] p-4"
+                >
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <p class="font-semibold text-[var(--ink)]">{contributor.name}</p>
+                      <p class="mt-1 text-sm text-[var(--muted)]">
+                        {contributor.crop_type} · {contributor.variety || "Variety pending"}
+                      </p>
+                    </div>
+                    <p class="text-sm font-semibold text-[var(--brand-green-deep)]">
+                      {format_quantity(contributor.expected_output)} expected
+                    </p>
+                  </div>
+                  <p class="mt-3 text-sm text-[var(--muted)]">
+                    Harvest window {format_date(contributor.harvest_start_date)} to {format_date(
+                      contributor.harvest_end_date
+                    )}. This unit contributes {contributor.share_label} of the peak week's total.
+                  </p>
+                </div>
+              </div>
+            <% else %>
+              <div class="mt-6 rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]">
+                No peak explanation is available yet because there is no forecast output in the current window.
+              </div>
+            <% end %>
+          </div>
+
           <div class="panel-shell">
             <p class="eyebrow">Next Saturday</p>
             <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
@@ -247,10 +290,15 @@ defmodule ChasingSunWeb.ForecastLive.Index do
   end
 
   defp load_forecast(socket, venture_code) do
+    filters = filters_for(venture_code)
+    forecast = Analytics.forecast(filters)
+    rules = Operations.list_crop_rules()
+
     assign(socket,
       selected_venture: venture_code,
       ventures: Operations.list_ventures(),
-      forecast: Analytics.forecast(filters_for(venture_code))
+      forecast: forecast,
+      peak_week: peak_week_details(forecast.weeks, rules)
     )
   end
 
@@ -285,10 +333,92 @@ defmodule ChasingSunWeb.ForecastLive.Index do
   defp next_week_units([week | _]), do: week.active_units
   defp next_week_units(_weeks), do: 0
 
+  defp peak_week_hint(nil), do: "Highest expected weekly output"
+
+  defp peak_week_hint(peak_week) do
+    case peak_week.contributors do
+      [] ->
+        "#{peak_week.active_units} harvesting units drive this peak"
+
+      contributors ->
+        "Driven by #{contributor_breakdown(contributors)}"
+    end
+  end
+
   defp format_quantity(value), do: format_number(value, decimals: 1)
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
+
+  defp peak_week_details([], _rules), do: nil
+
+  defp peak_week_details(weeks, rules) do
+    case Enum.max_by(weeks, & &1.expected_output, fn -> nil end) do
+      nil ->
+        nil
+
+      peak_week ->
+        contributors =
+          peak_week.greenhouses
+          |> Enum.map(&peak_contributor(&1, rules, peak_week.expected_output))
+          |> Enum.sort_by(& &1.expected_output, :desc)
+
+        Map.put(peak_week, :contributors, contributors)
+    end
+  end
+
+  defp peak_contributor(greenhouse, rules, peak_total) do
+    cycle = Operations.current_cycle(greenhouse)
+    expected_output = Operations.CropPlanner.expected_yield(cycle, rules)
+
+    %{
+      name: greenhouse.name,
+      crop_type: cycle && cycle.crop_type,
+      variety: cycle && cycle.variety,
+      harvest_start_date: cycle && cycle.harvest_start_date,
+      harvest_end_date: cycle && cycle.harvest_end_date,
+      expected_output: expected_output,
+      share_label: share_label(expected_output, peak_total)
+    }
+  end
+
+  defp share_label(_value, 0.0), do: "0.0%"
+
+  defp share_label(value, total) do
+    value
+    |> Kernel./(total)
+    |> Kernel.*(100.0)
+    |> Float.round(1)
+    |> then(&"#{&1}%")
+  end
+
+  defp peak_week_reason(%{contributors: []} = peak_week) do
+    "#{format_date(peak_week.week_ending_on)} is marked as the peak week with #{format_quantity(peak_week.expected_output)} expected output, but there are no greenhouse contributors loaded for the breakdown."
+  end
+
+  defp peak_week_reason(peak_week) do
+    "#{format_date(peak_week.week_ending_on)} peaks at #{format_quantity(peak_week.expected_output)} because #{peak_week.active_units} greenhouse#{plural_suffix(peak_week.active_units)} are expected to be harvesting in the same week: #{contributor_breakdown(peak_week.contributors)}."
+  end
+
+  defp contributor_breakdown(contributors) do
+    contributors
+    |> Enum.map(fn contributor ->
+      "#{contributor.name} (#{format_quantity(contributor.expected_output)}, #{contributor.share_label})"
+    end)
+    |> join_with_and()
+  end
+
+  defp plural_suffix(1), do: ""
+  defp plural_suffix(_count), do: "s"
+
+  defp join_with_and([]), do: ""
+  defp join_with_and([item]), do: item
+  defp join_with_and([first, second]), do: "#{first} and #{second}"
+
+  defp join_with_and(items) do
+    {head, [tail]} = Enum.split(items, length(items) - 1)
+    Enum.join(head, ", ") <> ", and " <> tail
+  end
 
   defp forecast_chart(weeks) do
     %{

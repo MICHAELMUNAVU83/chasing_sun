@@ -140,41 +140,117 @@ defmodule ChasingSunWeb.DashboardLive.Index do
               <table class="data-table">
                 <thead>
                   <tr>
+                    <th>No</th>
                     <th>Greenhouse</th>
-                    <th>Venture</th>
-                    <th>Current crop</th>
+                    <th>Crop</th>
+                    <th>Cycle details</th>
                     <th>Status</th>
-                    <th>Expected</th>
+                    <th>Latest harvest</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr :for={row <- @greenhouse_rows}>
+                    <td class="font-semibold">{row.sequence_no}</td>
                     <td>
                       <p class="font-semibold text-[var(--ink)]">{row.name}</p>
                       <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                        Unit {row.sequence_no}
+                        {row.venture_name} · {String.upcase(row.venture_code)}
                       </p>
-                    </td>
-                    <td>
-                      <p class="font-semibold text-[var(--ink)]">{row.venture_name}</p>
-                      <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                        {row.venture_code}
+                      <p class="mt-2 text-xs text-[var(--muted)]">
+                        Size {row.size || "-"} · Tank {row.tank || "-"}
                       </p>
                     </td>
                     <td>
                       <p>{row.crop_type || "No active cycle"}</p>
-                      <p class="mt-1 text-xs text-[var(--muted)]">{row.crop_meta}</p>
+                      <p class="mt-1 text-xs text-[var(--muted)]">
+                        {row.variety || "Variety pending"}
+                      </p>
+                      <p class="mt-2 text-xs text-[var(--muted)]">{row.crop_meta}</p>
+                    </td>
+                    <td>
+                      <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Plant count
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">
+                            {format_count(row.plant_count)}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Weekly yield
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">
+                            {format_quantity(row.weekly_yield)}
+                          </p>
+                          <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
+                        </div>
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Nursery date
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">
+                            {format_date(row.nursery_date)}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Transplant date
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">
+                            {format_date(row.transplant_date)}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Harvest start
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">
+                            {format_date(row.harvest_start_date)}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Harvest end
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">
+                            {format_date(row.harvest_end_date)}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Soil recovery end
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">
+                            {format_date(row.soil_recovery_end_date)}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                            Status
+                          </p>
+                          <p class="mt-1 text-sm text-[var(--ink)]">{status_label(row.status)}</p>
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <.status_badge status={row.status} />
                     </td>
                     <td>
-                      <p class="font-semibold">{format_quantity(row.expected_output)}</p>
-                      <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
+                      <%= case row.latest_harvest do %>
+                        <% nil -> %>
+                          <p class="text-[var(--muted)]">No harvest data</p>
+                        <% harvest -> %>
+                          <p class="font-semibold">{format_quantity(harvest.actual_yield)}</p>
+                          <p class="mt-1 text-xs text-[var(--muted)]">
+                            {format_date(harvest.week_ending_on)}
+                          </p>
+                      <% end %>
                     </td>
                   </tr>
                   <tr :if={Enum.empty?(@greenhouse_rows)}>
-                    <td colspan="5" class="text-center text-sm text-[var(--muted)]">
+                    <td colspan="6" class="text-center text-sm text-[var(--muted)]">
                       No greenhouse records match the current filter.
                     </td>
                   </tr>
@@ -377,29 +453,48 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp build_row(greenhouse, rules) do
     cycle = Operations.current_cycle(greenhouse)
     expected_output = if cycle, do: Operations.CropPlanner.expected_yield(cycle, rules), else: 0.0
+    latest_harvest = List.first(greenhouse.harvest_records)
+    status = cycle && cycle.status_cache
 
     %{
       sequence_no: greenhouse.sequence_no,
       name: greenhouse.name,
+      size: greenhouse.size,
+      tank: greenhouse.tank,
       venture_name: greenhouse.venture.name,
       venture_code: greenhouse.venture.code,
       crop_type: cycle && cycle.crop_type,
+      variety: cycle && cycle.variety,
+      plant_count: cycle && cycle.plant_count,
+      nursery_date: cycle && cycle.nursery_date,
+      transplant_date: cycle && cycle.transplant_date,
+      harvest_start_date: cycle && cycle.harvest_start_date,
+      harvest_end_date: cycle && cycle.harvest_end_date,
+      soil_recovery_end_date: cycle && cycle.soil_recovery_end_date,
       crop_meta: crop_meta(cycle),
-      status: cycle && cycle.status_cache,
+      status: status,
       expected_output: expected_output,
-      output_hint: if(cycle, do: "Current cycle baseline", else: "Awaiting planting")
+      weekly_yield: weekly_yield(status, expected_output),
+      output_hint: output_hint(status, cycle),
+      latest_harvest: latest_harvest
     }
   end
 
-  defp crop_meta(nil), do: "No crop cycle assigned"
+  defp crop_meta(nil), do: "Register a crop cycle to enable timeline tracking"
 
   defp crop_meta(cycle) do
-    [cycle.variety, cycle.plant_count && "#{cycle.plant_count} plants"]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.join(" · ")
-    |> case do
-      "" -> "Cycle registered"
-      text -> text
+    cond do
+      cycle.harvest_start_date && cycle.harvest_end_date ->
+        "Harvest window #{format_date(cycle.harvest_start_date)} to #{format_date(cycle.harvest_end_date)}"
+
+      cycle.transplant_date ->
+        "Transplanted #{format_date(cycle.transplant_date)}"
+
+      cycle.nursery_date ->
+        "Nursery started #{format_date(cycle.nursery_date)}"
+
+      true ->
+        "Cycle registered"
     end
   end
 
@@ -422,6 +517,8 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp filters_for(venture_code), do: %{venture_code: venture_code}
 
   defp format_quantity(value), do: format_number(value, decimals: 1)
+  defp format_count(nil), do: "-"
+  defp format_count(value), do: format_number(value, decimals: 0)
 
   defp format_date(nil), do: "TBD"
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
@@ -452,6 +549,20 @@ defmodule ChasingSunWeb.DashboardLive.Index do
       _ -> "system"
     end
   end
+
+  defp weekly_yield(:harvesting, expected_output), do: expected_output
+  defp weekly_yield(_, _expected_output), do: 0.0
+
+  defp output_hint(_status, nil), do: "Awaiting planting"
+  defp output_hint(:harvesting, _cycle), do: "Current weekly baseline"
+  defp output_hint(:soil_turning, _cycle), do: "Paused during soil recovery"
+  defp output_hint(:waiting, _cycle), do: "Starts once harvest opens"
+
+  defp status_label(:harvesting), do: "Harvesting"
+  defp status_label("harvesting"), do: "Harvesting"
+  defp status_label(:soil_turning), do: "Soil Turning"
+  defp status_label("soil_turning"), do: "Soil Turning"
+  defp status_label(_status), do: "Waiting"
 
   defp output_chart(rows) do
     sorted_rows = Enum.sort_by(rows, & &1.expected_output, :desc)
