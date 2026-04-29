@@ -209,6 +209,18 @@
     color: var(--ink);
   }
 
+  .status-board-table thead th {
+    @apply px-5;
+  }
+
+  .status-board-table tbody td {
+    @apply px-5;
+  }
+
+  .status-board-table tbody tr:hover {
+    background: rgba(237, 243, 221, 0.45);
+  }
+
   .chart-shell {
     @apply rounded-[1.75rem] border bg-white/70 p-4;
     border-color: var(--line);

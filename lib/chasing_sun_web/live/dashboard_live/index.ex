@@ -14,12 +14,18 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     {:ok,
      socket
      |> assign(:page_title, "Dashboard")
+     |> assign(:selected_greenhouse_id, nil)
      |> load_dashboard(venture_code)}
   end
 
   @impl true
   def handle_event("filter", %{"venture_code" => venture_code}, socket) do
     {:noreply, load_dashboard(socket, venture_code)}
+  end
+
+  @impl true
+  def handle_event("select_greenhouse", %{"greenhouse_id" => greenhouse_id}, socket) do
+    {:noreply, assign(socket, :selected_greenhouse_id, parse_optional_int(greenhouse_id))}
   end
 
   @impl true
@@ -34,98 +40,53 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <section class="space-y-6">
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(340px,1fr)]">
-        <div class="panel-shell">
-          <p class="eyebrow">Operations Pulse</p>
-          <h1 class="page-title">ChasingSun greenhouse control room</h1>
-          <p class="page-copy">
-            Track live crop status, expected weekly output, and the next set of greenhouse actions from one place.
-          </p>
+    <section class="space-y-8">
+      <div class="panel-shell">
+        <p class="eyebrow">Operations Pulse</p>
+        <h1 class="page-title">ChasingSun greenhouse control room</h1>
+        <p class="page-copy">
+          Track live crop status, expected weekly output, and the next set of greenhouse actions from one place.
+        </p>
 
-          <div class="mt-6 flex flex-wrap gap-2">
-            <button
-              :for={venture <- filter_options(@ventures)}
-              type="button"
-              phx-click="filter"
-              phx-value-venture_code={venture.code}
-              class={filter_tab_class(@selected_venture, venture.code)}
-            >
-              {venture.label}
-            </button>
-          </div>
-
-          <div class="mt-8 grid gap-4 grid-cols-2">
-            <.summary_card
-              title="Total units"
-              value={@snapshot.metrics.total_units}
-              hint="Greenhouses in the current filtered view"
-            />
-            <.summary_card
-              title="Harvesting now"
-              value={@snapshot.metrics.harvesting}
-              hint="Units currently inside the harvest window"
-              accent="yellow"
-            />
-            <.summary_card
-              title="Soil turning"
-              value={@snapshot.metrics.soil_turning}
-              hint="Units inside post-harvest soil recovery"
-              accent="ink"
-            />
-            <.summary_card
-              title="Expected weekly output"
-              value={format_quantity(@snapshot.metrics.expected_output)}
-              hint="Projected yield from current active cycles"
-            />
-          </div>
-        </div>
-
-        <div class="panel-shell">
-          <p class="eyebrow">Crop Planning</p>
-          <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-            Immediate crop recommendations
-          </h2>
-          <p class="mt-4 text-sm text-[var(--muted)]">
-            Crop rotation guidance now lives on its own page so the dashboard can stay focused on the live operating picture.
-          </p>
-
-          <div class="mt-6 grid gap-4 sm:grid-cols-2">
-            <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
-              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                Active recommendations
-              </p>
-              <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                {length(@forecast.recommendations)}
-              </p>
-            </div>
-
-            <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
-              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                Nursery in 7 days
-              </p>
-              <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                {due_soon_count(@forecast.recommendations, :nursery_date)}
-              </p>
-            </div>
-          </div>
-
-          <p
-            :if={latest_generated_on(@forecast.recommendations)}
-            class="mt-4 text-sm text-[var(--muted)]"
+        <div class="mt-8 flex flex-wrap gap-2">
+          <button
+            :for={venture <- filter_options(@ventures)}
+            type="button"
+            phx-click="filter"
+            phx-value-venture_code={venture.code}
+            class={filter_tab_class(@selected_venture, venture.code)}
           >
-            Latest planning refresh: {format_date(latest_generated_on(@forecast.recommendations))}
-          </p>
-
-          <.link navigate={~p"/recommendations"} class="action-link mt-6 inline-flex">
-            Open recommendations page
-          </.link>
+            {venture.label}
+          </button>
         </div>
       </div>
 
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
-        <div class="space-y-6">
-          <div class="panel-shell">
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <.summary_card
+          title="Total units"
+          value={@snapshot.metrics.total_units}
+          hint="Greenhouses in the current filtered view"
+        />
+        <.summary_card
+          title="Harvesting now"
+          value={@snapshot.metrics.harvesting}
+          hint="Units currently inside the harvest window"
+          accent="yellow"
+        />
+        <.summary_card
+          title="Soil turning"
+          value={@snapshot.metrics.soil_turning}
+          hint="Units inside post-harvest soil recovery"
+          accent="ink"
+        />
+        <.summary_card
+          title="Expected weekly output"
+          value={format_quantity(@snapshot.metrics.expected_output)}
+          hint="Expected yields from harvesting units"
+        />
+      </div>
+
+      <div class="panel-shell">
             <div class="flex items-center justify-between gap-4">
               <div>
                 <p class="eyebrow">Live Estate View</p>
@@ -137,14 +98,22 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             </div>
 
             <div class="mt-6 overflow-x-auto">
-              <table class="data-table">
+              <table class="data-table status-board-table">
+                <colgroup>
+                  <col class="w-14" />
+                  <col class="min-w-[18rem]" />
+                  <col class="min-w-[14rem]" />
+                  <col class="min-w-[22rem]" />
+                  <col class="w-32" />
+                  <col class="min-w-[11rem]" />
+                </colgroup>
                 <thead>
                   <tr>
-                    <th>No</th>
+                    <th class="whitespace-nowrap">No</th>
                     <th>Greenhouse</th>
                     <th>Crop</th>
-                    <th>Cycle details</th>
-                    <th>Status</th>
+                    <th>Cycle overview</th>
+                    <th class="whitespace-nowrap">Status</th>
                     <th>Latest harvest</th>
                   </tr>
                 </thead>
@@ -168,73 +137,47 @@ defmodule ChasingSunWeb.DashboardLive.Index do
                       <p class="mt-2 text-xs text-[var(--muted)]">{row.crop_meta}</p>
                     </td>
                     <td>
-                      <div class="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Plant count
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">
-                            {format_count(row.plant_count)}
-                          </p>
+                      <div class="space-y-3">
+                        <div class="flex flex-wrap gap-3">
+                          <div class="min-w-[9.5rem] rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-2">
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                              Plant count
+                            </p>
+                            <p class="mt-1 text-sm font-semibold text-[var(--ink)]">
+                              {format_count(row.plant_count)}
+                            </p>
+                          </div>
+
+                          <div class="min-w-[10.5rem] rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-2">
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                              Weekly yield
+                            </p>
+                            <p class="mt-1 text-sm font-semibold text-[var(--ink)]">
+                              {format_quantity(row.weekly_yield)}
+                            </p>
+                            <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
+                          </div>
                         </div>
-                        <div>
+
+                        <div class="rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-2">
                           <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Weekly yield
+                            Timeline
                           </p>
                           <p class="mt-1 text-sm text-[var(--ink)]">
-                            {format_quantity(row.weekly_yield)}
+                            Nursery {format_date(row.nursery_date)} · Transplant {format_date(
+                              row.transplant_date
+                            )}
                           </p>
-                          <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
-                        </div>
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Nursery date
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">
-                            {format_date(row.nursery_date)}
-                          </p>
-                        </div>
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Transplant date
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">
-                            {format_date(row.transplant_date)}
-                          </p>
-                        </div>
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Harvest start
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">
-                            {format_date(row.harvest_start_date)}
-                          </p>
-                        </div>
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Harvest end
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">
-                            {format_date(row.harvest_end_date)}
-                          </p>
-                        </div>
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Soil recovery end
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">
+                          <p class="mt-1 text-sm text-[var(--muted)]">
+                            Harvest {format_date(row.harvest_start_date)} → {format_date(
+                              row.harvest_end_date
+                            )} · Soil recovery{" "}
                             {format_date(row.soil_recovery_end_date)}
                           </p>
                         </div>
-                        <div>
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Status
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">{status_label(row.status)}</p>
-                        </div>
                       </div>
                     </td>
-                    <td>
+                    <td class="align-middle">
                       <.status_badge status={row.status} />
                     </td>
                     <td>
@@ -265,7 +208,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
               Output, status, and projection graphs
             </h2>
 
-            <div class="mt-6 grid gap-4 xl:grid-cols-1">
+            <div class="mt-6 grid gap-4 md:grid-cols-2">
               <div class="chart-shell">
                 <p class="text-sm font-semibold text-[var(--ink)]">Expected output by greenhouse</p>
                 <div class="chart-frame">
@@ -317,9 +260,144 @@ defmodule ChasingSunWeb.DashboardLive.Index do
               </div>
             </div>
           </div>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="panel-shell">
+          <p class="eyebrow">At a glance</p>
+          <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+            Greenhouse quick view
+          </h2>
+            <p class="mt-4 text-sm text-[var(--muted)]">
+              Select a greenhouse to see key cycle dates and the expected weekly yield.
+            </p>
+
+            <form class="mt-6" phx-change="select_greenhouse">
+              <label class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                Greenhouse
+              </label>
+              <select
+                name="greenhouse_id"
+                class="mt-2 w-full rounded-2xl border border-[var(--line)] bg-white/80 px-4 py-3 text-sm font-semibold text-[var(--ink)] shadow-sm outline-none focus:border-[var(--brand-green)] focus:ring-2 focus:ring-[rgba(93,145,56,0.22)]"
+              >
+                <option value="" selected={is_nil(@selected_greenhouse_id)}>
+                  Select a greenhouse…
+                </option>
+                <option
+                  :for={row <- @greenhouse_rows}
+                  value={row.greenhouse_id}
+                  selected={@selected_greenhouse_id == row.greenhouse_id}
+                >
+                  {row.name}
+                </option>
+              </select>
+            </form>
+
+            <% selected = selected_greenhouse(@greenhouse_rows, @selected_greenhouse_id) %>
+
+            <div
+              :if={selected}
+              class="mt-6 rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-semibold text-[var(--ink)]">{selected.name}</p>
+                  <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    {selected.venture_name} · {String.upcase(selected.venture_code)}
+                  </p>
+                </div>
+                <.status_badge status={selected.status} class="shrink-0" />
+              </div>
+
+              <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                <.quick_field
+                  label="Nursery date"
+                  value={format_date(selected.nursery_date)}
+                  class={nil}
+                />
+                <.quick_field
+                  label="Transplant date"
+                  value={format_date(selected.transplant_date)}
+                  class={nil}
+                />
+                <.quick_field
+                  label="Harvest start"
+                  value={format_date(selected.harvest_start_date)}
+                  class={nil}
+                />
+                <.quick_field
+                  label="Harvest end"
+                  value={format_date(selected.harvest_end_date)}
+                  class={nil}
+                />
+                <.quick_field
+                  label="Soil recovery start"
+                  value={format_date(soil_recovery_start_date(selected))}
+                  class={nil}
+                />
+                <.quick_field
+                  label="Soil recovery end"
+                  value={format_date(selected.soil_recovery_end_date)}
+                  class={nil}
+                />
+                <.quick_field
+                  label="Expected weekly yield"
+                  value={format_quantity(selected.expected_output)}
+                  class="sm:col-span-2"
+                />
+              </div>
+            </div>
+
+            <div
+              :if={!selected}
+              class="mt-6 rounded-[1.75rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+            >
+              Pick a greenhouse to preview its timeline.
+            </div>
+          </div>
+
+          <div class="panel-shell">
+            <p class="eyebrow">Crop Planning</p>
+            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Immediate crop recommendations
+            </h2>
+            <p class="mt-4 text-sm text-[var(--muted)]">
+              Crop rotation guidance lives on its own page so the dashboard can stay focused on the live operating picture.
+            </p>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+              <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+                <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Active recommendations
+                </p>
+                <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+                  {length(@forecast.recommendations)}
+                </p>
+              </div>
+
+              <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+                <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Nursery in 7 days
+                </p>
+                <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+                  {due_soon_count(@forecast.recommendations, :nursery_date)}
+                </p>
+              </div>
+            </div>
+
+            <p
+              :if={latest_generated_on(@forecast.recommendations)}
+              class="mt-4 text-sm text-[var(--muted)]"
+            >
+              Latest planning refresh: {format_date(latest_generated_on(@forecast.recommendations))}
+            </p>
+
+            <.link navigate={~p"/recommendations"} class="action-link mt-6 inline-flex">
+              Open recommendations page
+            </.link>
+          </div>
         </div>
 
-        <div class="space-y-6">
+        <div class="grid gap-6 lg:grid-cols-2">
           <div class="panel-shell">
             <p class="eyebrow">Operations Alerts</p>
             <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
@@ -391,9 +469,10 @@ defmodule ChasingSunWeb.DashboardLive.Index do
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="panel-shell">
-            <p class="eyebrow">Audit Trail</p>
+        <div class="panel-shell">
+          <p class="eyebrow">Audit Trail</p>
             <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
               Recent changes
             </h2>
@@ -419,13 +498,11 @@ defmodule ChasingSunWeb.DashboardLive.Index do
                 <p class="mt-3 text-sm text-[var(--muted)]">{format_datetime(event.inserted_at)}</p>
               </div>
 
-              <div
-                :if={Enum.empty?(@recent_events)}
-                class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
-              >
-                Audit events will appear here after greenhouse, harvest, and rule changes.
-              </div>
-            </div>
+          <div
+            :if={Enum.empty?(@recent_events)}
+            class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+          >
+            Audit events will appear here after greenhouse, harvest, and rule changes.
           </div>
         </div>
       </div>
@@ -438,13 +515,18 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     snapshot = Analytics.dashboard(filters)
     forecast = Analytics.forecast(filters)
     rules = Operations.list_crop_rules()
+    greenhouse_rows = Enum.map(snapshot.greenhouses, &build_row(&1, rules))
+
+    selected_greenhouse_id =
+      ensure_selected_greenhouse_id(socket.assigns[:selected_greenhouse_id], greenhouse_rows)
 
     assign(socket,
       selected_venture: venture_code,
       ventures: Operations.list_ventures(),
       snapshot: snapshot,
       forecast: forecast,
-      greenhouse_rows: Enum.map(snapshot.greenhouses, &build_row(&1, rules)),
+      greenhouse_rows: greenhouse_rows,
+      selected_greenhouse_id: selected_greenhouse_id,
       notifications: Operations.recent_operation_notifications(6, filters),
       recent_events: Operations.recent_audit_events(6)
     )
@@ -457,6 +539,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     status = cycle && cycle.status_cache
 
     %{
+      greenhouse_id: greenhouse.id,
       sequence_no: greenhouse.sequence_no,
       name: greenhouse.name,
       size: greenhouse.size,
@@ -480,7 +563,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     }
   end
 
-  defp crop_meta(nil), do: "Register a crop cycle to enable timeline tracking"
+  defp crop_meta(nil), do: "No cycle registered yet"
 
   defp crop_meta(cycle) do
     cond do
@@ -526,6 +609,66 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp format_datetime(%DateTime{} = datetime), do: Calendar.strftime(datetime, "%d %b %Y %H:%M")
   defp format_datetime(_datetime), do: "Unknown"
 
+  defp quick_field(assigns) do
+    assigns = Map.put_new(assigns, :class, nil)
+
+    ~H"""
+    <div class={[
+      "rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-2",
+      @class
+    ]}>
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+        {@label}
+      </p>
+      <p class="mt-1 text-sm font-semibold text-[var(--ink)]">
+        {@value}
+      </p>
+    </div>
+    """
+  end
+
+  defp parse_optional_int(nil), do: nil
+
+  defp parse_optional_int(value) when is_binary(value) do
+    value = String.trim(value)
+
+    case value do
+      "" -> nil
+      _ -> String.to_integer(value)
+    end
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp parse_optional_int(value) when is_integer(value), do: value
+  defp parse_optional_int(_value), do: nil
+
+  defp selected_greenhouse(rows, selected_greenhouse_id) when is_list(rows) do
+    Enum.find(rows, fn row -> row.greenhouse_id == selected_greenhouse_id end)
+  end
+
+  defp ensure_selected_greenhouse_id(selected_greenhouse_id, rows) when is_list(rows) do
+    cond do
+      Enum.empty?(rows) ->
+        nil
+
+      is_integer(selected_greenhouse_id) and
+          Enum.any?(rows, fn row -> row.greenhouse_id == selected_greenhouse_id end) ->
+        selected_greenhouse_id
+
+      true ->
+        List.first(rows).greenhouse_id
+    end
+  end
+
+  defp soil_recovery_start_date(%{soil_recovery_end_date: %Date{} = soil_recovery_end_date}),
+    do: Date.add(soil_recovery_end_date, -Operations.CropPlanner.soil_recovery_days())
+
+  defp soil_recovery_start_date(%{harvest_end_date: %Date{} = harvest_end_date}),
+    do: harvest_end_date
+
+  defp soil_recovery_start_date(_row), do: nil
+
   defp due_soon_count(recommendations, field) do
     today = Date.utc_today()
     deadline = Date.add(today, 7)
@@ -557,12 +700,6 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp output_hint(:harvesting, _cycle), do: "Current weekly baseline"
   defp output_hint(:soil_turning, _cycle), do: "Paused during soil recovery"
   defp output_hint(:waiting, _cycle), do: "Starts once harvest opens"
-
-  defp status_label(:harvesting), do: "Harvesting"
-  defp status_label("harvesting"), do: "Harvesting"
-  defp status_label(:soil_turning), do: "Soil Turning"
-  defp status_label("soil_turning"), do: "Soil Turning"
-  defp status_label(_status), do: "Waiting"
 
   defp output_chart(rows) do
     sorted_rows = Enum.sort_by(rows, & &1.expected_output, :desc)
