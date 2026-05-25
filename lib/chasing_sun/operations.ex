@@ -12,6 +12,8 @@ defmodule ChasingSun.Operations do
     CropCycle,
     CropPlanner,
     CropRule,
+    FarmVisitGreenhouseStatus,
+    FarmVisitReport,
     Greenhouse,
     OperationNotification,
     OperationRecommendation,
@@ -312,6 +314,203 @@ defmodule ChasingSun.Operations do
         order_by: [desc: event.inserted_at],
         limit: ^limit
     )
+  end
+
+  def list_farm_visit_reports(filters \\ %{}) do
+    limit = Map.get(filters, :limit) || Map.get(filters, "limit")
+
+    FarmVisitReport
+    |> order_by([report], desc: report.visited_on, desc: report.updated_at)
+    |> maybe_limit_query(limit)
+    |> Repo.all()
+    |> Repo.preload(farm_visit_report_preloads())
+  end
+
+  def get_farm_visit_report!(id) do
+    FarmVisitReport
+    |> Repo.get!(id)
+    |> Repo.preload(farm_visit_report_preloads())
+  end
+
+  def get_farm_visit_report_by_date(date) do
+    with {:ok, date} <- coerce_date(date),
+         %FarmVisitReport{} = report <- Repo.get_by(FarmVisitReport, visited_on: date) do
+      Repo.preload(report, farm_visit_report_preloads())
+    else
+      _ -> nil
+    end
+  end
+
+  def change_farm_visit_report(report, attrs \\ %{}) do
+    FarmVisitReport.changeset(report, normalize_farm_visit_report_attrs(attrs, nil))
+  end
+
+  def upsert_farm_visit_report(attrs, actor) do
+    params = normalize_farm_visit_report_attrs(attrs, actor)
+
+    case farm_visit_report_date(params) do
+      {:ok, visited_on} ->
+        case Repo.get_by(FarmVisitReport, visited_on: visited_on) do
+          nil -> create_farm_visit_report(params, actor)
+          report -> update_farm_visit_report(report, params, actor)
+        end
+
+      :error ->
+        create_farm_visit_report(params, actor)
+    end
+  end
+
+  def update_farm_visit_report(%FarmVisitReport{} = report, attrs, actor) do
+    report = Repo.preload(report, :greenhouse_statuses)
+
+    params =
+      attrs
+      |> normalize_farm_visit_report_attrs(actor)
+      |> merge_existing_greenhouse_status_ids(report.greenhouse_statuses)
+
+    Multi.new()
+    |> Multi.update(:report, FarmVisitReport.changeset(report, params))
+    |> Multi.run(:audit, fn repo, %{report: updated_report} ->
+      insert_audit(
+        repo,
+        actor,
+        "farm_visit_report",
+        updated_report.id,
+        "farm_visit_report_updated",
+        %{
+          visited_on: updated_report.visited_on
+        }
+      )
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{report: updated_report}} ->
+        {:ok, Repo.preload(updated_report, farm_visit_report_preloads())}
+
+      {:error, :report, changeset, _} ->
+        {:error, changeset}
+    end
+  end
+
+  defp create_farm_visit_report(attrs, actor) do
+    Multi.new()
+    |> Multi.insert(:report, FarmVisitReport.changeset(%FarmVisitReport{}, attrs))
+    |> Multi.run(:audit, fn repo, %{report: report} ->
+      insert_audit(repo, actor, "farm_visit_report", report.id, "farm_visit_report_inserted", %{
+        visited_on: report.visited_on
+      })
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{report: report}} ->
+        {:ok, Repo.preload(report, farm_visit_report_preloads())}
+
+      {:error, :report, changeset, _} ->
+        {:error, changeset}
+    end
+  end
+
+  defp farm_visit_report_preloads do
+    [
+      :inserted_by_user,
+      greenhouse_statuses: {farm_visit_greenhouse_status_query(), [greenhouse: :venture]}
+    ]
+  end
+
+  defp farm_visit_greenhouse_status_query do
+    from status in FarmVisitGreenhouseStatus,
+      order_by: [asc: status.greenhouse_sequence_no, asc: status.greenhouse_name]
+  end
+
+  defp maybe_limit_query(query, nil), do: query
+  defp maybe_limit_query(query, ""), do: query
+
+  defp maybe_limit_query(query, limit) when is_integer(limit) and limit > 0 do
+    from source in query, limit: ^limit
+  end
+
+  defp maybe_limit_query(query, limit) when is_binary(limit) do
+    case Integer.parse(limit) do
+      {parsed_limit, ""} -> maybe_limit_query(query, parsed_limit)
+      _ -> query
+    end
+  end
+
+  defp maybe_limit_query(query, _limit), do: query
+
+  defp normalize_farm_visit_report_attrs(attrs, actor) do
+    attrs
+    |> stringify_keys()
+    |> Map.update("greenhouse_statuses", [], &normalize_greenhouse_status_attrs/1)
+    |> Map.put("inserted_by_user_id", actor && actor.id)
+  end
+
+  defp normalize_greenhouse_status_attrs(nil), do: []
+
+  defp normalize_greenhouse_status_attrs(statuses) when is_map(statuses) do
+    statuses
+    |> Enum.sort_by(fn {index, _attrs} -> status_index(index) end)
+    |> Enum.map(fn {_index, attrs} -> stringify_keys(attrs) end)
+  end
+
+  defp normalize_greenhouse_status_attrs(statuses) when is_list(statuses) do
+    Enum.map(statuses, &stringify_keys/1)
+  end
+
+  defp merge_existing_greenhouse_status_ids(params, existing_statuses) do
+    existing_by_greenhouse_id =
+      existing_statuses
+      |> Enum.reject(&is_nil(&1.greenhouse_id))
+      |> Map.new(&{to_string(&1.greenhouse_id), &1.id})
+
+    existing_by_name = Map.new(existing_statuses, &{&1.greenhouse_name, &1.id})
+
+    statuses =
+      params
+      |> Map.get("greenhouse_statuses", [])
+      |> Enum.map(fn status ->
+        existing_id =
+          existing_by_greenhouse_id[to_string(status["greenhouse_id"])] ||
+            existing_by_name[status["greenhouse_name"]]
+
+        if status["id"] in [nil, ""] and existing_id do
+          Map.put(status, "id", existing_id)
+        else
+          status
+        end
+      end)
+
+    Map.put(params, "greenhouse_statuses", statuses)
+  end
+
+  defp farm_visit_report_date(params) do
+    params
+    |> Map.get("visited_on")
+    |> coerce_date()
+  end
+
+  defp coerce_date(%Date{} = date), do: {:ok, date}
+
+  defp coerce_date(date) when is_binary(date) do
+    case Date.from_iso8601(date) do
+      {:ok, date} -> {:ok, date}
+      {:error, _reason} -> :error
+    end
+  end
+
+  defp coerce_date(_date), do: :error
+
+  defp stringify_keys(attrs) when is_map(attrs) do
+    Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
+  end
+
+  defp stringify_keys(attrs), do: attrs
+
+  defp status_index(index) do
+    case Integer.parse(to_string(index)) do
+      {parsed_index, ""} -> parsed_index
+      _ -> 0
+    end
   end
 
   defp maybe_filter_venture(query, nil), do: query

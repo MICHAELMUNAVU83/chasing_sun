@@ -7,6 +7,7 @@ defmodule ChasingSun.Accounts.Scope do
           :view_dashboard
           | :manage_greenhouses
           | :manage_harvest
+          | :manage_farm_visits
           | :manage_crop_rules
           | :delete_greenhouses
 
@@ -21,11 +22,14 @@ defmodule ChasingSun.Accounts.Scope do
       :view_dashboard,
       :manage_greenhouses,
       :manage_harvest,
+      :manage_farm_visits,
       :manage_crop_rules,
       :delete_greenhouses
     ]
 
-  def permissions(:operator), do: [:view_dashboard, :manage_greenhouses, :manage_harvest]
+  def permissions(:operator),
+    do: [:view_dashboard, :manage_greenhouses, :manage_harvest, :manage_farm_visits]
+
   def permissions(:viewer), do: [:view_dashboard]
 
   def label(%User{role: role}) when is_atom(role),

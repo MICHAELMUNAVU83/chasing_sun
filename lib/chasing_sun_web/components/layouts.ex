@@ -55,6 +55,7 @@ defmodule ChasingSunWeb.Layouts do
       %{title: "Dashboard", path: ~p"/dashboard"},
       %{title: "Recommendations", path: ~p"/recommendations"},
       %{title: "Greenhouses", path: ~p"/greenhouses"},
+      %{title: "Farm Visits", path: ~p"/farm-visits", label: "Visits"},
       %{title: "Harvest Records", path: ~p"/harvest-records", label: "Harvest"},
       %{title: "Performance", path: ~p"/performance"},
       %{title: "Forecast", path: ~p"/forecast"}
@@ -115,6 +116,10 @@ defmodule ChasingSunWeb.Layouts do
   defp description_for("Greenhouses"),
     do:
       "Manage greenhouse units, venture assignments, and active crop cycles that drive ChasingSun forecasting and analytics."
+
+  defp description_for("Farm Visits"),
+    do:
+      "Capture daily farm visit reports, reserve tank checks, greenhouse health, and foot bath compliance in ChasingSun."
 
   defp description_for("Harvest Records"),
     do:
