@@ -110,8 +110,7 @@ defmodule ChasingSun.Operations do
             ),
           harvest_records:
             ^from(record in ChasingSun.Harvesting.HarvestRecord,
-              order_by: [desc: record.week_ending_on],
-              limit: 3
+              order_by: [desc: record.week_ending_on, desc: record.updated_at]
             )
         ],
         order_by: [asc: greenhouse.sequence_no]

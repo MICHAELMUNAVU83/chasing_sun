@@ -256,7 +256,9 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
             <tbody>
               <tr :for={greenhouse <- @greenhouses}>
                 <td>
-                  <p class="font-semibold text-[var(--ink)]">{greenhouse.name}</p>
+                  <.link navigate={~p"/greenhouses/#{greenhouse.id}"} class="action-link font-semibold">
+                    {greenhouse.name}
+                  </.link>
                   <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                     Unit {greenhouse.sequence_no} · {format_greenhouse_size(greenhouse.size)}
                   </p>
