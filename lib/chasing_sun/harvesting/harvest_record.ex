@@ -6,6 +6,7 @@ defmodule ChasingSun.Harvesting.HarvestRecord do
     field :week_ending_on, :date
     field :actual_yield, :float
     field :price_per_kg, :float
+    field :grade, :string
     field :notes, :string
 
     belongs_to :greenhouse, ChasingSun.Operations.Greenhouse
@@ -23,12 +24,12 @@ defmodule ChasingSun.Harvesting.HarvestRecord do
       :week_ending_on,
       :actual_yield,
       :price_per_kg,
+      :grade,
       :notes,
       :inserted_by_user_id
     ])
     |> validate_required([:greenhouse_id, :week_ending_on, :actual_yield])
     |> validate_number(:actual_yield, greater_than_or_equal_to: 0)
     |> validate_number(:price_per_kg, greater_than_or_equal_to: 0)
-    |> unique_constraint([:greenhouse_id, :week_ending_on])
   end
 end

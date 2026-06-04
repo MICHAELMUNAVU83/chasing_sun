@@ -37,6 +37,36 @@ defmodule ChasingSun.Harvesting do
 
   def change_harvest_record(record, attrs \\ %{}), do: HarvestRecord.changeset(record, attrs)
 
+  @doc """
+  Always inserts a new harvest record. Multiple records may exist for the same
+  greenhouse and week (e.g. different grades at different price points).
+  """
+  def create_harvest_record(attrs, actor) do
+    greenhouse = Operations.get_greenhouse!(attrs["greenhouse_id"] || attrs[:greenhouse_id])
+
+    crop_cycle =
+      attrs["crop_cycle_id"] || attrs[:crop_cycle_id] || Operations.current_cycle(greenhouse)
+
+    crop_cycle_id = if is_map(crop_cycle), do: crop_cycle.id, else: crop_cycle
+
+    params =
+      attrs
+      |> Map.new(fn {key, value} -> {to_string(key), value} end)
+      |> Map.put("crop_cycle_id", crop_cycle_id)
+      |> Map.put("inserted_by_user_id", actor && actor.id)
+
+    Multi.new()
+    |> Multi.insert(:record, HarvestRecord.changeset(%HarvestRecord{}, params))
+    |> Multi.run(:audit, fn repo, %{record: record} ->
+      insert_audit(repo, actor, record, "harvest_record_inserted")
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{record: record}} -> {:ok, Repo.preload(record, [:crop_cycle, greenhouse: :venture])}
+      {:error, :record, changeset, _} -> {:error, changeset}
+    end
+  end
+
   def upsert_harvest_record(attrs, actor) do
     greenhouse = Operations.get_greenhouse!(attrs["greenhouse_id"] || attrs[:greenhouse_id])
 

@@ -33,6 +33,27 @@ defmodule ChasingSunWeb.FormatHelpers do
 
   def format_number(_value, opts), do: format_number(0, opts)
 
+  @doc """
+  Formats a number exactly as stored, without rounding to a fixed number of
+  decimals. Thousands are grouped and a trailing ".0" on whole numbers is dropped.
+  """
+  def format_exact(value) when is_integer(value), do: value |> Integer.to_string() |> add_commas()
+
+  def format_exact(value) when is_float(value) do
+    value
+    |> Float.to_string()
+    |> String.replace_suffix(".0", "")
+    |> add_commas()
+  end
+
+  def format_exact(_value), do: "0"
+
+  @doc """
+  Like `format_currency/2` but preserves the value exactly as stored (no rounding).
+  """
+  def format_currency_exact(value) when is_number(value), do: "KES " <> format_exact(value)
+  def format_currency_exact(_value), do: "KES 0"
+
   defp default_decimals(value) when is_integer(value), do: 0
   defp default_decimals(_value), do: 1
 

@@ -79,7 +79,10 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
       result =
         case socket.assigns.current_harvest_record do
           nil ->
-            Harvesting.upsert_harvest_record(harvest_params, socket.assigns.current_user)
+            Harvesting.create_harvest_record(
+              normalize_harvest_attrs(harvest_params, socket.assigns.current_user),
+              socket.assigns.current_user
+            )
 
           record ->
             Harvesting.update_harvest_record(
@@ -147,7 +150,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
             />
             <.summary_card
               title="Total yield"
-              value={format_quantity(Enum.reduce(@records, 0.0, &(&1.actual_yield + &2)))}
+              value={format_total(Enum.reduce(@records, 0.0, &(&1.actual_yield + &2)))}
               hint="Summed across visible rows"
               accent="yellow"
             />
@@ -199,6 +202,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <th>Greenhouse</th>
                 <th>Venture</th>
                 <th>Crop</th>
+                <th>Grade</th>
                 <th>Actual yield</th>
                 <th>Price / kg</th>
                 <th>Notes</th>
@@ -214,6 +218,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 </td>
                 <td>{record.greenhouse.venture.name}</td>
                 <td>{(record.crop_cycle && record.crop_cycle.crop_type) || "No cycle"}</td>
+                <td class="text-[var(--muted)]">{blank_fallback(record.grade)}</td>
                 <td class="font-semibold text-[var(--ink)]">
                   {format_quantity(record.actual_yield)}
                 </td>
@@ -232,7 +237,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 </td>
               </tr>
               <tr :if={Enum.empty?(@records)}>
-                <td colspan="8" class="text-center text-sm text-[var(--muted)]">
+                <td colspan="9" class="text-center text-sm text-[var(--muted)]">
                   No harvest records found.
                 </td>
               </tr>
@@ -345,16 +350,22 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               required
             />
             <.input
+              field={@harvest_form[:grade]}
+              type="text"
+              label="Grade"
+              placeholder="e.g. Grade A — leave blank if ungraded"
+            />
+            <.input
               field={@harvest_form[:actual_yield]}
               type="number"
-              step="0.1"
+              step="any"
               label="Actual yield"
               required
             />
             <.input
               field={@harvest_form[:price_per_kg]}
               type="number"
-              step="0.01"
+              step="any"
               min="0"
               label="Price per kg (KES)"
               placeholder="Leave blank to use the crop rule price"
@@ -409,6 +420,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               |> Date.to_iso8601(),
             "actual_yield" => "",
             "price_per_kg" => "",
+            "grade" => "",
             "notes" => ""
           },
           as: :harvest
@@ -423,6 +435,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
         "week_ending_on" => Date.to_iso8601(record.week_ending_on),
         "actual_yield" => record.actual_yield,
         "price_per_kg" => record.price_per_kg || "",
+        "grade" => record.grade || "",
         "notes" => record.notes || ""
       },
       as: :harvest
@@ -479,10 +492,16 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   defp submit_label(nil), do: "Create harvest record"
   defp submit_label(_record), do: "Save changes"
 
-  defp format_quantity(value), do: format_number(value, decimals: 1)
+  defp format_quantity(value), do: ChasingSunWeb.FormatHelpers.format_exact(value)
+
+  # Sum of stored floats; round only to clear floating-point noise, not to truncate entries.
+  defp format_total(value) when is_float(value),
+    do: value |> Float.round(6) |> ChasingSunWeb.FormatHelpers.format_exact()
+
+  defp format_total(value), do: ChasingSunWeb.FormatHelpers.format_exact(value)
 
   defp format_price(nil), do: "Crop rule"
-  defp format_price(value), do: ChasingSunWeb.FormatHelpers.format_currency(value, decimals: 2)
+  defp format_price(value), do: ChasingSunWeb.FormatHelpers.format_currency_exact(value)
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
@@ -563,6 +582,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
       "week_ending_on" => form[:week_ending_on].value || "",
       "actual_yield" => form[:actual_yield].value || "",
       "price_per_kg" => form[:price_per_kg].value || "",
+      "grade" => form[:grade].value || "",
       "notes" => form[:notes].value || ""
     }
   end
