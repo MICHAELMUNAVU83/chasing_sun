@@ -26,7 +26,8 @@ defmodule ChasingSun.Analytics do
             rules
           )
 
-        revenue = record.actual_yield * CropPlanner.price_for(crop_type, rules)
+        price_per_kg = record.price_per_kg || CropPlanner.price_for(crop_type, rules)
+        revenue = record.actual_yield * price_per_kg
         variance = record.actual_yield - expected
 
         %{

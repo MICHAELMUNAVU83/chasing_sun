@@ -200,6 +200,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <th>Venture</th>
                 <th>Crop</th>
                 <th>Actual yield</th>
+                <th>Price / kg</th>
                 <th>Notes</th>
                 <th></th>
               </tr>
@@ -216,6 +217,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <td class="font-semibold text-[var(--ink)]">
                   {format_quantity(record.actual_yield)}
                 </td>
+                <td class="text-[var(--muted)]">{format_price(record.price_per_kg)}</td>
                 <td class="max-w-xs text-[var(--muted)]">{blank_fallback(record.notes)}</td>
                 <td class="text-right">
                   <button
@@ -230,7 +232,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 </td>
               </tr>
               <tr :if={Enum.empty?(@records)}>
-                <td colspan="7" class="text-center text-sm text-[var(--muted)]">
+                <td colspan="8" class="text-center text-sm text-[var(--muted)]">
                   No harvest records found.
                 </td>
               </tr>
@@ -350,6 +352,14 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               required
             />
             <.input
+              field={@harvest_form[:price_per_kg]}
+              type="number"
+              step="0.01"
+              min="0"
+              label="Price per kg (KES)"
+              placeholder="Leave blank to use the crop rule price"
+            />
+            <.input
               field={@harvest_form[:notes]}
               type="textarea"
               label="Notes"
@@ -398,6 +408,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               |> ChasingSun.Operations.CropPlanner.next_saturday()
               |> Date.to_iso8601(),
             "actual_yield" => "",
+            "price_per_kg" => "",
             "notes" => ""
           },
           as: :harvest
@@ -411,6 +422,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
         "greenhouse_id" => record.greenhouse_id,
         "week_ending_on" => Date.to_iso8601(record.week_ending_on),
         "actual_yield" => record.actual_yield,
+        "price_per_kg" => record.price_per_kg || "",
         "notes" => record.notes || ""
       },
       as: :harvest
@@ -468,6 +480,9 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   defp submit_label(_record), do: "Save changes"
 
   defp format_quantity(value), do: format_number(value, decimals: 1)
+
+  defp format_price(nil), do: "Crop rule"
+  defp format_price(value), do: ChasingSunWeb.FormatHelpers.format_currency(value, decimals: 2)
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
@@ -547,6 +562,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
       "greenhouse_id" => form[:greenhouse_id].value || "",
       "week_ending_on" => form[:week_ending_on].value || "",
       "actual_yield" => form[:actual_yield].value || "",
+      "price_per_kg" => form[:price_per_kg].value || "",
       "notes" => form[:notes].value || ""
     }
   end
