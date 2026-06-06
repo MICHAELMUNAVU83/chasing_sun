@@ -115,69 +115,39 @@ defmodule ChasingSunWeb.FarmVisitLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <section class="space-y-6">
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
-        <div class="panel-shell">
-          <p class="eyebrow">Daily Visit Log</p>
-          <h1 class="page-title">Farm visit reports</h1>
-          <p class="page-copy">
-            Capture water reserve checks, greenhouse condition, foot bath compliance, and management remarks for each farm visit.
-          </p>
-
-          <div class="mt-8 grid gap-4 md:grid-cols-3">
-            <.summary_card title="Recent reports" value={length(@reports)} hint="Latest saved visits" />
-            <.summary_card
-              title="Last visit"
-              value={format_date(@latest_report && @latest_report.visited_on)}
-              hint={latest_visitor(@latest_report)}
-              accent="yellow"
-            />
-            <.summary_card
-              title="Latest issues"
-              value={issue_count(@latest_report)}
-              hint="Water, health, weeding, or foot bath flags"
-              accent="ink"
-            />
-          </div>
-        </div>
-
-        <div class="panel-shell">
-          <p class="eyebrow">Quick Actions</p>
-          <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-            Record today’s visit
-          </h2>
-          <p class="mt-4 text-sm leading-6 text-[var(--muted)]">
-            The form opens with one observation row for every registered greenhouse.
-          </p>
-
-          <div class="mt-6 space-y-4">
-            <button
-              :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_farm_visits)}
-              type="button"
-              phx-click="open_form_modal"
-              class="inline-flex w-full items-center justify-center rounded-[1.25rem] bg-[var(--brand-green)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--brand-green-deep)]"
-            >
-              New visit report
-            </button>
-            <p class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-4 text-sm text-[var(--muted)]">
-              One saved report is kept per visit date, so reopening today updates today’s record.
-            </p>
-          </div>
-        </div>
+    <section class="space-y-10">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="page-title">Farm visits</h1>
+        <button
+          :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_farm_visits)}
+          type="button"
+          phx-click="open_form_modal"
+          class="inline-flex items-center justify-center rounded-lg bg-[var(--brand-green)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--brand-green-deep)]"
+        >
+          New visit report
+        </button>
       </div>
 
+      <div class="grid gap-4 md:grid-cols-3">
+        <.summary_card title="Recent reports" value={length(@reports)} hint="Last 30 days" />
+        <.summary_card
+          title="Last visit"
+          value={format_date(@latest_report && @latest_report.visited_on)}
+          hint={latest_visitor(@latest_report)}
+        />
+        <.summary_card
+          title="Latest issues"
+          value={issue_count(@latest_report)}
+          hint="Flagged this visit"
+        />
+      </div>
+
+      <p class="text-xs text-zinc-400">
+        One saved report is kept per visit date, so reopening today updates today’s record.
+      </p>
+
       <div class="panel-shell">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p class="eyebrow">Visit History</p>
-            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-              Saved farm visits
-            </h2>
-          </div>
-          <p class="text-sm text-[var(--muted)]">
-            {length(@greenhouses)} greenhouse rows per new report
-          </p>
-        </div>
+        <h2 class="section-heading">Visit history</h2>
 
         <div class="mt-6 overflow-x-auto">
           <table class="data-table">
@@ -229,8 +199,11 @@ defmodule ChasingSunWeb.FarmVisitLive.Index do
                 </td>
               </tr>
               <tr :if={Enum.empty?(@reports)}>
-                <td colspan="7" class="text-center text-sm text-[var(--muted)]">
-                  No farm visit reports have been saved yet.
+                <td colspan="7" class="py-12 text-center">
+                  <.icon name="hero-clipboard-document-list" class="mx-auto h-8 w-8 text-zinc-300" />
+                  <p class="mt-3 text-sm text-zinc-500">
+                    No farm visit reports have been saved yet.
+                  </p>
                 </td>
               </tr>
             </tbody>
@@ -239,8 +212,7 @@ defmodule ChasingSunWeb.FarmVisitLive.Index do
       </div>
 
       <div :if={@latest_report} class="panel-shell">
-        <p class="eyebrow">Latest Visit Detail</p>
-        <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+        <h2 class="section-heading">
           {format_date(@latest_report.visited_on)} greenhouse observations
         </h2>
 
@@ -303,8 +275,7 @@ defmodule ChasingSunWeb.FarmVisitLive.Index do
       >
         <div class="space-y-6">
           <div>
-            <p class="eyebrow">{modal_eyebrow(@current_report)}</p>
-            <h2 class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+            <h2 class="text-xl font-semibold text-zinc-900">
               {modal_title(@current_report)}
             </h2>
           </div>
@@ -646,9 +617,6 @@ defmodule ChasingSunWeb.FarmVisitLive.Index do
 
   defp weeding_status_options,
     do: Enum.map(FarmVisitGreenhouseStatus.weeding_status_options(), &{choice_label(&1), &1})
-
-  defp modal_eyebrow(nil), do: "New Visit"
-  defp modal_eyebrow(_report), do: "Edit Visit"
 
   defp modal_title(nil), do: "Capture farm visit"
   defp modal_title(report), do: "Edit #{format_date(report.visited_on)} visit"

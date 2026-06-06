@@ -34,15 +34,11 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <section class="space-y-6">
-      <div class="panel-shell">
-        <p class="eyebrow">Crop Planning</p>
-        <h1 class="page-title">Immediate crop recommendations</h1>
-        <p class="page-copy">
-          Review the next crop for each greenhouse, see the nursery and transplant windows, and keep rotation actions separate from the dashboard.
-        </p>
+    <section class="space-y-10">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="page-title">Crop recommendations</h1>
 
-        <div class="mt-6 flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
             :for={venture <- filter_options(@ventures)}
             type="button"
@@ -53,38 +49,25 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
             {venture.label}
           </button>
         </div>
-
-        <div class="mt-8 grid gap-4 md:grid-cols-3">
-          <.summary_card
-            title="Active recommendations"
-            value={length(@recommendations)}
-            hint="Greenhouses with a stored next-crop suggestion"
-          />
-          <.summary_card
-            title="Nursery next 7 days"
-            value={due_soon_count(@recommendations, :nursery_date)}
-            hint="Recommendations with nursery work due soon"
-            accent="yellow"
-          />
-          <.summary_card
-            title="Transplants next 7 days"
-            value={due_soon_count(@recommendations, :transplant_date)}
-            hint="Recommendations entering the transplant window"
-            accent="ink"
-          />
-        </div>
       </div>
 
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,1fr)]">
+      <div class="grid gap-4 md:grid-cols-3">
+        <.summary_card title="Active recommendations" value={length(@recommendations)} />
+        <.summary_card
+          title="Nursery next 7 days"
+          value={due_soon_count(@recommendations, :nursery_date)}
+        />
+        <.summary_card
+          title="Transplants next 7 days"
+          value={due_soon_count(@recommendations, :transplant_date)}
+        />
+      </div>
+
+      <div class="grid gap-8 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,1fr)]">
         <div class="panel-shell">
           <div class="flex items-center justify-between gap-4">
-            <div>
-              <p class="eyebrow">Recommended Rotations</p>
-              <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                Next crop by greenhouse
-              </h2>
-            </div>
-            <p :if={latest_generated_on(@recommendations)} class="text-sm text-[var(--muted)]">
+            <h2 class="section-heading">Next crop</h2>
+            <p :if={latest_generated_on(@recommendations)} class="text-xs text-zinc-400">
               Updated {format_date(latest_generated_on(@recommendations))}
             </p>
           </div>
@@ -92,7 +75,7 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
           <div class="mt-6 space-y-4">
             <div
               :for={recommendation <- @recommendations}
-              class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-5"
+              class="rounded-xl border border-zinc-200 p-5"
             >
               <div class="flex items-start justify-between gap-4">
                 <div>
@@ -105,23 +88,22 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
                     )}
                   </p>
                 </div>
-                <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                  {recommendation.recommendation_kind}
+                <span class="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                  {humanize_kind(recommendation.recommendation_kind)}
                 </span>
               </div>
 
-              <div class="mt-5 grid gap-4 md:grid-cols-2">
-                <div class="rounded-[1.25rem] bg-white px-4 py-3">
-                  <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Current crop</p>
-                  <p class="mt-2 text-sm font-semibold text-[var(--ink)]">
+              <div class="mt-4 flex items-center gap-4">
+                <div class="flex-1">
+                  <p class="text-xs uppercase tracking-wide text-zinc-400">Current crop</p>
+                  <p class="mt-1 text-sm font-medium text-[var(--ink)]">
                     {recommendation.current_crop}
                   </p>
                 </div>
-                <div class="rounded-[1.25rem] bg-white px-4 py-3">
-                  <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    Recommended next crop
-                  </p>
-                  <p class="mt-2 text-sm font-semibold text-[var(--brand-green-deep)]">
+                <span class="text-zinc-300">→</span>
+                <div class="flex-1">
+                  <p class="text-xs uppercase tracking-wide text-zinc-400">Recommended next</p>
+                  <p class="mt-1 text-sm font-medium text-[var(--brand-green-deep)]">
                     {recommendation_label(recommendation)}
                   </p>
                 </div>
@@ -134,20 +116,32 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
               <div class="mt-4 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
                 <span
                   :if={recommendation.soil_recovery_end_date}
-                  class="rounded-full bg-white px-3 py-1"
+                  class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1"
                 >
                   Soil ready {format_date(recommendation.soil_recovery_end_date)}
                 </span>
-                <span :if={recommendation.nursery_date} class="rounded-full bg-white px-3 py-1">
+                <span
+                  :if={recommendation.nursery_date}
+                  class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1"
+                >
                   Nursery {format_date(recommendation.nursery_date)}
                 </span>
-                <span :if={recommendation.transplant_date} class="rounded-full bg-white px-3 py-1">
+                <span
+                  :if={recommendation.transplant_date}
+                  class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1"
+                >
                   Transplant {format_date(recommendation.transplant_date)}
                 </span>
-                <span :if={recommendation.harvest_start_date} class="rounded-full bg-white px-3 py-1">
+                <span
+                  :if={recommendation.harvest_start_date}
+                  class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1"
+                >
                   Harvest starts {format_date(recommendation.harvest_start_date)}
                 </span>
-                <span :if={recommendation.harvest_end_date} class="rounded-full bg-white px-3 py-1">
+                <span
+                  :if={recommendation.harvest_end_date}
+                  class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1"
+                >
                   Harvest ends {format_date(recommendation.harvest_end_date)}
                 </span>
               </div>
@@ -162,17 +156,14 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
           </div>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-8">
           <div class="panel-shell">
-            <p class="eyebrow">Planning Alerts</p>
-            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-              Notifications tied to the plan
-            </h2>
+            <h2 class="section-heading">Alerts</h2>
 
-            <div class="mt-6 space-y-4">
+            <div class="mt-6 space-y-3">
               <div
                 :for={notification <- @notifications}
-                class="rounded-[1.5rem] border border-[var(--line)] p-4"
+                class="rounded-xl border border-zinc-200 p-4"
               >
                 <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
                 <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
@@ -191,14 +182,11 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
           </div>
 
           <div class="panel-shell">
-            <p class="eyebrow">Related View</p>
-            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-              Forecast and projections
-            </h2>
-            <p class="mt-4 text-sm text-[var(--muted)]">
-              Use the forecast page when you want the wider eight-week output view alongside these rotation decisions.
+            <h2 class="section-heading">Forecast</h2>
+            <p class="mt-2 text-sm text-[var(--muted)]">
+              The eight-week output view sits alongside these rotation decisions.
             </p>
-            <.link navigate={~p"/forecast"} class="action-link mt-6 inline-flex">
+            <.link navigate={~p"/forecast"} class="action-link mt-4 inline-flex">
               Open forecast
             </.link>
           </div>
@@ -249,6 +237,16 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
 
   defp latest_generated_on(recommendations),
     do: Enum.max_by(recommendations, & &1.generated_on).generated_on
+
+  defp humanize_kind(nil), do: "-"
+  defp humanize_kind(""), do: "-"
+
+  defp humanize_kind(kind) do
+    kind
+    |> to_string()
+    |> String.replace("_", " ")
+    |> String.capitalize()
+  end
 
   defp recommendation_label(recommendation) do
     [recommendation.next_crop, recommendation.next_variety]

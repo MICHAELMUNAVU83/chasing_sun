@@ -4,124 +4,100 @@
 
 @layer base {
   :root {
-    --canvas: #f6f5ea;
+    --canvas: #fafaf9;
     --surface: #ffffff;
-    --surface-soft: #edf3dd;
-    --ink: #1f2a16;
-    --muted: #5f6d4f;
-    --line: rgba(76, 99, 46, 0.12);
-    --line-strong: rgba(76, 99, 46, 0.24);
-    --brand-green: #5d9138;
-    --brand-green-deep: #3f722f;
+    --surface-soft: #fafaf9;
+    --ink: #18181b;
+    --muted: #71717a;
+    --line: #e4e4e7;
+    --line-strong: #d4d4d8;
+    --brand-green: #3f722f;
+    --brand-green-deep: #345f27;
     --brand-yellow: #f3d74f;
   }
 
   body {
     font-family: "Avenir Next", "Segoe UI", sans-serif;
-    background:
-      radial-gradient(
-        circle at top right,
-        rgba(243, 215, 79, 0.3),
-        transparent 28%
-      ),
-      linear-gradient(180deg, #f7f6ef 0%, #eef5de 100%);
+    background: #fafaf9;
+    color: var(--ink);
   }
 }
 
 @layer components {
   .panel-shell {
-    @apply rounded-[2rem] border bg-white/90 p-6 shadow-[0_30px_60px_rgba(48,83,25,0.08)] backdrop-blur;
-    border-color: var(--line);
+    @apply rounded-xl border border-zinc-200 bg-white p-6 shadow-sm;
   }
 
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.28em];
-    color: var(--muted);
+    @apply text-xs font-medium uppercase tracking-wide text-zinc-400;
   }
 
   .page-title {
-    @apply mt-3 text-4xl font-semibold tracking-[-0.06em];
-    color: var(--ink);
+    @apply text-2xl font-semibold tracking-tight text-zinc-900;
   }
 
   .page-copy {
-    @apply mt-3 max-w-3xl text-base leading-7;
-    color: var(--muted);
+    @apply mt-2 max-w-3xl text-sm text-zinc-500;
+  }
+
+  .section-heading {
+    @apply text-lg font-semibold text-zinc-900;
   }
 
   .metric-card {
-    @apply rounded-[1.5rem] border p-4;
-    border-color: var(--line);
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.92) 0%,
-      rgba(237, 243, 221, 0.92) 100%
-    );
+    @apply rounded-xl border border-zinc-200 bg-white p-5 shadow-sm;
   }
 
   .metric-label {
-    @apply text-xs font-semibold uppercase tracking-[0.24em];
-    color: var(--muted);
+    @apply text-xs font-medium uppercase tracking-wide text-zinc-400;
   }
 
   .metric-value {
-    @apply mt-3 text-2xl font-semibold tracking-[-0.05em];
-    color: var(--ink);
+    @apply mt-2 text-2xl font-semibold tracking-tight text-zinc-900;
   }
 
   .metric-hint {
-    @apply mt-2 text-sm;
-    color: var(--muted);
+    @apply mt-1 text-xs text-zinc-400;
   }
 
   .filter-tab {
-    @apply rounded-full border px-4 py-2 text-sm font-semibold transition;
-    border-color: var(--line-strong);
-    color: var(--muted);
-    background: rgba(255, 255, 255, 0.72);
+    @apply rounded-full border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-600 transition;
+  }
+
+  .filter-tab:hover {
+    @apply border-zinc-400;
   }
 
   .filter-tab-active {
-    @apply border-transparent;
+    @apply border-transparent text-white;
     background: var(--brand-green);
-    color: white;
+  }
+
+  .filter-tab-active:hover {
+    @apply border-transparent;
+    background: var(--brand-green-deep);
   }
 
   .nav-chip {
-    @apply rounded-full border px-4 py-2 text-sm font-semibold transition;
-    border-color: var(--line);
-    background: rgba(255, 255, 255, 0.72);
-    color: var(--ink);
+    @apply rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition;
   }
 
   .nav-chip:hover {
-    border-color: var(--brand-green);
-    color: var(--brand-green);
+    @apply border-zinc-400 text-zinc-900;
   }
 
   .sidebar-shell {
-    @apply flex h-full min-h-0 flex-col overflow-hidden rounded-[2rem] border bg-white/90 p-5 shadow-[0_30px_60px_rgba(48,83,25,0.08)] backdrop-blur;
-    border-color: var(--line);
-  }
-
-  .sidebar-section {
-    @apply space-y-2;
-  }
-
-  .sidebar-section-label {
-    @apply px-1 text-[11px] font-semibold uppercase tracking-[0.26em];
-    color: var(--muted);
+    @apply flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-white p-5;
   }
 
   .sidebar-scroll {
-    @apply mt-6 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto;
-    scrollbar-gutter: stable;
+    @apply mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(93, 145, 56, 0.35) transparent;
+    scrollbar-color: rgba(63, 114, 47, 0.3) transparent;
   }
 
   .sidebar-scroll::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   .sidebar-scroll::-webkit-scrollbar-track {
@@ -130,63 +106,49 @@
 
   .sidebar-scroll::-webkit-scrollbar-thumb {
     border-radius: 9999px;
-    background: rgba(93, 145, 56, 0.3);
+    background: rgba(63, 114, 47, 0.25);
   }
 
-  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(93, 145, 56, 0.45);
+  .sidebar-avatar {
+    @apply flex items-center gap-3;
   }
 
-  .sidebar-meta {
-    @apply border-t px-1 pt-4;
-    border-color: var(--line);
+  .sidebar-avatar-mark {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white;
+    background: var(--brand-green);
   }
 
-  .sidebar-meta-label {
-    @apply text-[11px] font-semibold uppercase tracking-[0.24em];
-    color: var(--muted);
+  .sidebar-avatar-email {
+    @apply truncate text-sm font-medium text-zinc-900;
   }
 
-  .sidebar-meta-primary {
-    @apply mt-2 text-sm font-semibold break-all;
-    color: var(--ink);
-  }
-
-  .sidebar-meta-secondary {
-    @apply mt-1 text-sm;
-    color: var(--muted);
-  }
-
-  .sidebar-link {
-    @apply flex items-center rounded-[1rem] border px-3 py-2.5 text-sm font-semibold transition;
-    border-color: transparent;
-    color: var(--muted);
-    background: transparent;
+  .sidebar-avatar-role {
+    @apply truncate text-xs text-zinc-500;
   }
 
   .sidebar-nav {
     @apply flex flex-col gap-1;
   }
 
+  .sidebar-link {
+    @apply flex items-center border-l-2 border-transparent px-3 py-2 text-sm text-zinc-600 transition;
+  }
+
   .sidebar-link:hover {
-    background: rgba(237, 243, 221, 0.82);
-    color: var(--brand-green-deep);
+    @apply text-zinc-900;
   }
 
   .sidebar-link-active {
-    border-color: var(--line);
-    background: white;
-    color: var(--brand-green-deep);
-    box-shadow: 0 12px 24px rgba(63, 114, 47, 0.08);
+    @apply font-medium text-zinc-900;
+    border-color: var(--brand-green-deep);
   }
 
   .sidebar-footer {
-    @apply mt-6 border-t pt-6;
-    border-color: var(--line);
+    @apply mt-6 flex flex-col gap-2 border-t border-zinc-200 pt-4;
   }
 
   .action-link {
-    @apply text-sm font-semibold transition;
+    @apply text-sm font-medium transition;
     color: var(--brand-green-deep);
   }
 
@@ -199,14 +161,11 @@
   }
 
   .data-table thead th {
-    @apply px-4 py-3 text-xs font-semibold uppercase tracking-[0.22em];
-    color: var(--muted);
+    @apply border-b border-zinc-200 px-4 py-3 text-xs font-medium uppercase tracking-wide text-zinc-400;
   }
 
   .data-table tbody td {
-    @apply border-t px-4 py-4 align-top;
-    border-color: var(--line);
-    color: var(--ink);
+    @apply border-b border-zinc-100 px-4 py-3 align-top text-zinc-800;
   }
 
   .status-board-table thead th {
@@ -218,12 +177,11 @@
   }
 
   .status-board-table tbody tr:hover {
-    background: rgba(237, 243, 221, 0.45);
+    @apply bg-zinc-50;
   }
 
   .chart-shell {
-    @apply rounded-[1.75rem] border bg-white/70 p-4;
-    border-color: var(--line);
+    @apply rounded-xl border border-zinc-200 bg-white p-4;
   }
 
   .chart-frame {

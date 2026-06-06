@@ -1,61 +1,50 @@
 <%= if @current_user do %>
   <div class="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
-    <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div class="grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)]">
       <aside class="sidebar-shell lg:sticky lg:top-5 lg:h-[calc(100vh-2.5rem)]">
-        <div>
-          <.brand_lockup navigate={~p"/dashboard"} />
+        <.brand_lockup navigate={~p"/dashboard"} subtitle={nil} image_class="h-9 w-9" />
 
-          <div class="sidebar-meta mt-6">
-            <p class="sidebar-meta-label">Signed in</p>
-            <p class="sidebar-meta-primary">{@current_user.email}</p>
-            <p class="sidebar-meta-secondary">
-              {ChasingSun.Accounts.Scope.label(@current_user)}
-            </p>
-          </div>
-        </div>
-
-        <div class="sidebar-scroll">
-          <div class="sidebar-section">
-            <p class="sidebar-section-label">Operations</p>
-            <nav class="sidebar-nav">
-              <a
-                :for={item <- app_navigation(@current_user)}
-                href={item.path}
-                class={sidebar_link_class(assigns[:page_title], item.title)}
-                aria-current={if(assigns[:page_title] == item.title, do: "page", else: nil)}
-              >
-                {sidebar_link_label(item)}
-              </a>
-            </nav>
-          </div>
-
-          <div
-            :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_crop_rules)}
-            class="sidebar-section"
+        <nav class="sidebar-scroll sidebar-nav">
+          <a
+            :for={item <- app_navigation(@current_user)}
+            href={item.path}
+            class={sidebar_link_class(assigns[:page_title], item.title)}
+            aria-current={if(assigns[:page_title] == item.title, do: "page", else: nil)}
           >
-            <p class="sidebar-section-label">Administration</p>
-            <nav class="sidebar-nav">
-              <a
-                :for={item <- admin_navigation()}
-                href={item.path}
-                class={sidebar_link_class(assigns[:page_title], item.title)}
-                aria-current={if(assigns[:page_title] == item.title, do: "page", else: nil)}
-              >
-                {sidebar_link_label(item)}
-              </a>
-            </nav>
-          </div>
-        </div>
+            {sidebar_link_label(item)}
+          </a>
+          <a
+            :for={item <- admin_navigation()}
+            :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_crop_rules)}
+            href={item.path}
+            class={sidebar_link_class(assigns[:page_title], item.title)}
+            aria-current={if(assigns[:page_title] == item.title, do: "page", else: nil)}
+          >
+            {sidebar_link_label(item)}
+          </a>
+        </nav>
 
         <div class="sidebar-footer">
-          <a href={~p"/users/settings"} class="sidebar-link">Settings</a>
-          <.link
-            method="delete"
-            href={~p"/users/log_out"}
-            class="nav-chip mt-3 inline-flex w-full items-center justify-center"
-          >
-            Log out
-          </.link>
+          <div class="sidebar-avatar">
+            <span class="sidebar-avatar-mark">{avatar_initial(@current_user)}</span>
+            <div class="min-w-0">
+              <p class="sidebar-avatar-email">{@current_user.email}</p>
+              <p class="sidebar-avatar-role">{ChasingSun.Accounts.Scope.label(@current_user)}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 pl-12 text-sm">
+            <a href={~p"/users/settings"} class="text-zinc-500 transition hover:text-zinc-900">
+              Settings
+            </a>
+            <span class="text-zinc-300">·</span>
+            <.link
+              method="delete"
+              href={~p"/users/log_out"}
+              class="text-zinc-500 transition hover:text-zinc-900"
+            >
+              Log out
+            </.link>
+          </div>
         </div>
       </aside>
 

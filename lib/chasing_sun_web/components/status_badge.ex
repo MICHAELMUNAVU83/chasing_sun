@@ -12,7 +12,7 @@ defmodule ChasingSunWeb.Components.StatusBadge do
 
     ~H"""
     <span class={[
-      "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]",
+      "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
       tone_class(@normalized_status),
       @class
     ]}>
@@ -29,7 +29,7 @@ defmodule ChasingSunWeb.Components.StatusBadge do
   defp label(status) when status in [:soil_turning, "soil_turning"], do: "Soil Turning"
   defp label(_status), do: "Waiting"
 
-  defp tone_class(:harvesting), do: "bg-emerald-100 text-emerald-800"
-  defp tone_class(:soil_turning), do: "bg-amber-100 text-amber-800"
-  defp tone_class(:waiting), do: "bg-zinc-200 text-zinc-700"
+  defp tone_class(:harvesting), do: "border-green-200 bg-green-50 text-green-700"
+  defp tone_class(:soil_turning), do: "border-amber-200 bg-amber-50 text-amber-700"
+  defp tone_class(:waiting), do: "border-zinc-200 bg-zinc-50 text-zinc-600"
 end

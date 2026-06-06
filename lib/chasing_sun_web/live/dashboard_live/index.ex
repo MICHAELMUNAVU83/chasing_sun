@@ -41,15 +41,11 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <section class="space-y-8">
-      <div class="panel-shell">
-        <p class="eyebrow">Operations Pulse</p>
-        <h1 class="page-title">ChasingSun greenhouse control room</h1>
-        <p class="page-copy">
-          Track live crop status, expected weekly output, and the next set of greenhouse actions from one place.
-        </p>
+    <section class="space-y-10">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="page-title">Greenhouse control room</h1>
 
-        <div class="mt-8 flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
             :for={venture <- filter_options(@ventures)}
             type="button"
@@ -66,38 +62,18 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         :if={Scope.section_visible?(@current_user, "summary")}
         class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
       >
-        <.summary_card
-          title="Total units"
-          value={@snapshot.metrics.total_units}
-          hint="Greenhouses in the current filtered view"
-        />
-        <.summary_card
-          title="Harvesting now"
-          value={@snapshot.metrics.harvesting}
-          hint="Units currently inside the harvest window"
-          accent="yellow"
-        />
-        <.summary_card
-          title="Soil turning"
-          value={@snapshot.metrics.soil_turning}
-          hint="Units inside post-harvest soil recovery"
-          accent="ink"
-        />
+        <.summary_card title="Total units" value={@snapshot.metrics.total_units} />
+        <.summary_card title="Harvesting now" value={@snapshot.metrics.harvesting} />
+        <.summary_card title="Soil turning" value={@snapshot.metrics.soil_turning} />
         <.summary_card
           title="Expected weekly output"
           value={format_quantity(@snapshot.metrics.expected_output)}
-          hint="Expected yields from harvesting units"
         />
       </div>
 
       <div :if={Scope.section_visible?(@current_user, "status_board")} class="panel-shell">
             <div class="flex items-center justify-between gap-4">
-              <div>
-                <p class="eyebrow">Live Estate View</p>
-                <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                  Greenhouse status board
-                </h2>
-              </div>
+              <h2 class="section-heading">Status board</h2>
               <.link navigate={~p"/greenhouses"} class="action-link">Manage greenhouses</.link>
             </div>
 
@@ -141,45 +117,20 @@ defmodule ChasingSunWeb.DashboardLive.Index do
                       <p class="mt-2 text-xs text-[var(--muted)]">{row.crop_meta}</p>
                     </td>
                     <td>
-                      <div class="space-y-3">
-                        <div class="flex flex-wrap gap-3">
-                          <div class="min-w-[9.5rem] rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-2">
-                            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                              Plant count
-                            </p>
-                            <p class="mt-1 text-sm font-semibold text-[var(--ink)]">
-                              {format_count(row.plant_count)}
-                            </p>
-                          </div>
-
-                          <div class="min-w-[10.5rem] rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-2">
-                            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                              Weekly yield
-                            </p>
-                            <p class="mt-1 text-sm font-semibold text-[var(--ink)]">
-                              {format_quantity(row.weekly_yield)}
-                            </p>
-                            <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
-                          </div>
-                        </div>
-
-                        <div class="rounded-2xl border border-[var(--line)] bg-white/70 px-3 py-2">
-                          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                            Timeline
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--ink)]">
-                            Nursery {format_date(row.nursery_date)} · Transplant {format_date(
-                              row.transplant_date
-                            )}
-                          </p>
-                          <p class="mt-1 text-sm text-[var(--muted)]">
-                            Harvest {format_date(row.harvest_start_date)} → {format_date(
-                              row.harvest_end_date
-                            )} · Soil recovery{" "}
-                            {format_date(row.soil_recovery_end_date)}
-                          </p>
-                        </div>
-                      </div>
+                      <p class="font-medium text-[var(--ink)]">
+                        {format_count(row.plant_count)} plants · {format_quantity(row.weekly_yield)}/wk
+                      </p>
+                      <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
+                      <p class="mt-2 text-xs text-[var(--muted)]">
+                        Nursery {format_date(row.nursery_date)} · Transplant {format_date(
+                          row.transplant_date
+                        )}
+                      </p>
+                      <p class="mt-1 text-xs text-[var(--muted)]">
+                        Harvest {format_date(row.harvest_start_date)} → {format_date(
+                          row.harvest_end_date
+                        )} · Soil {format_date(row.soil_recovery_end_date)}
+                      </p>
                     </td>
                     <td class="align-middle">
                       <.status_badge status={row.status} />
@@ -207,10 +158,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
           </div>
 
           <div :if={Scope.section_visible?(@current_user, "charts")} class="panel-shell">
-            <p class="eyebrow">Visual Overview</p>
-            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-              Output, status, and projection graphs
-            </h2>
+            <h2 class="section-heading">Output, status, and projection graphs</h2>
 
             <div class="mt-6 grid gap-4 md:grid-cols-2">
               <div class="chart-shell">
@@ -267,13 +215,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
       <div class="grid gap-6 lg:grid-cols-2">
         <div :if={Scope.section_visible?(@current_user, "quick_view")} class="panel-shell">
-          <p class="eyebrow">At a glance</p>
-          <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-            Greenhouse quick view
-          </h2>
-            <p class="mt-4 text-sm text-[var(--muted)]">
-              Select a greenhouse to see key cycle dates and the expected weekly yield.
-            </p>
+          <h2 class="section-heading">Greenhouse quick view</h2>
 
             <form class="mt-6" phx-change="select_greenhouse">
               <label class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -360,13 +302,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
           </div>
 
           <div :if={Scope.section_visible?(@current_user, "recommendations")} class="panel-shell">
-            <p class="eyebrow">Crop Planning</p>
-            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-              Immediate crop recommendations
-            </h2>
-            <p class="mt-4 text-sm text-[var(--muted)]">
-              Crop rotation guidance lives on its own page so the dashboard can stay focused on the live operating picture.
-            </p>
+            <h2 class="section-heading">Immediate crop recommendations</h2>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2">
               <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
@@ -403,10 +339,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
         <div class="grid gap-6 lg:grid-cols-2">
           <div :if={Scope.section_visible?(@current_user, "notifications")} class="panel-shell">
-            <p class="eyebrow">Operations Alerts</p>
-            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-              Daily notifications
-            </h2>
+            <h2 class="section-heading">Daily notifications</h2>
 
             <div class="mt-6 space-y-4">
               <div
@@ -435,12 +368,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
           <div :if={Scope.section_visible?(@current_user, "projections")} class="panel-shell">
             <div class="flex items-center justify-between gap-4">
-              <div>
-                <p class="eyebrow">Projection</p>
-                <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                  Next Saturday outlook
-                </h2>
-              </div>
+              <h2 class="section-heading">Next Saturday outlook</h2>
               <.link navigate={~p"/forecast"} class="action-link">View 8-week forecast</.link>
             </div>
 
@@ -476,10 +404,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         </div>
 
         <div :if={ChasingSunWeb.UserAuth.can?(@current_user, :view_operations)} class="panel-shell">
-          <p class="eyebrow">Audit Trail</p>
-            <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-              Recent changes
-            </h2>
+          <h2 class="section-heading">Recent changes</h2>
 
             <div class="mt-6 space-y-4">
               <div

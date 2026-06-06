@@ -36,7 +36,7 @@ defmodule ChasingSunWeb.Layouts do
         class={[@image_class, "rounded-2xl object-cover shadow-[0_18px_30px_rgba(63,114,47,0.18)]"]}
       />
       <div>
-        <p class={@subtitle_class}>{@subtitle}</p>
+        <p :if={@subtitle} class={@subtitle_class}>{@subtitle}</p>
         <p class={@title_class}>{@title}</p>
       </div>
     </.link>
@@ -95,6 +95,12 @@ defmodule ChasingSunWeb.Layouts do
   end
 
   def sidebar_link_label(item), do: Map.get(item, :label, item.title)
+
+  def avatar_initial(%{email: email}) when is_binary(email) and email != "" do
+    email |> String.first() |> String.upcase()
+  end
+
+  def avatar_initial(_user), do: "?"
 
   def seo_title(assigns) do
     case assigns[:page_title] do
