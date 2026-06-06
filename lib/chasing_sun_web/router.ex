@@ -29,6 +29,14 @@ defmodule ChasingSunWeb.Router do
       pipe_through [:browser, :require_authenticated_user]
 
       live "/dashboard", DashboardLive.Index, :index
+    end
+  end
+
+  live_session :operations,
+    on_mount: [{ChasingSunWeb.UserAuth, :ensure_operations_access}] do
+    scope "/", ChasingSunWeb do
+      pipe_through [:browser, :require_authenticated_user]
+
       live "/recommendations", RecommendationLive.Index, :index
       live "/greenhouses", GreenhouseLive.Index, :index
       live "/greenhouses/:id", GreenhouseLive.Show, :show
@@ -47,6 +55,7 @@ defmodule ChasingSunWeb.Router do
       live "/guide", GuideLive.Index, :index
       live "/ventures", VentureLive.Index, :index
       live "/crop-rules", CropRuleLive.Index, :index
+      live "/guests", GuestLive.Index, :index
     end
   end
 

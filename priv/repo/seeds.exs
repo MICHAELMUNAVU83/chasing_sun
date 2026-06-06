@@ -71,6 +71,24 @@ admin =
       updated_user
   end
 
+guest_email = "guest@gmail.com"
+
+guest_defaults = %{
+  email: guest_email,
+  password: "123456",
+  allowed_pages: [],
+  allowed_sections: ChasingSun.Accounts.Scope.guest_section_keys(),
+  allowed_venture_codes: []
+}
+
+case Accounts.get_user_by_email(guest_email) do
+  nil ->
+    {:ok, _user} = Accounts.create_guest_user(guest_defaults)
+
+  user ->
+    {:ok, _updated_user} = Accounts.update_guest_user(user, guest_defaults)
+end
+
 ventures = Map.new(Operations.list_ventures(), &{&1.code, &1})
 
 cs_unit_names = MapSet.new(["Tharakanithi", "Meru", "Kisii"])

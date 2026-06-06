@@ -4,11 +4,14 @@ defmodule ChasingSun.Accounts.User do
 
   schema "users" do
     field :email, :string
-    field :role, Ecto.Enum, values: [:admin, :operator, :viewer], default: :viewer
+    field :role, Ecto.Enum, values: [:admin, :operator, :viewer, :guest], default: :viewer
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :current_password, :string, virtual: true, redact: true
     field :confirmed_at, :utc_datetime
+    field :allowed_pages, {:array, :string}, default: []
+    field :allowed_sections, {:array, :string}, default: []
+    field :allowed_venture_codes, {:array, :string}, default: []
 
     timestamps(type: :utc_datetime)
   end
@@ -47,6 +50,39 @@ defmodule ChasingSun.Accounts.User do
     user
     |> cast(attrs, [:role])
     |> validate_role()
+  end
+
+  @doc """
+  Changeset used by admins to create or edit a guest account.
+
+  The role is always forced to `:guest`. A password is required when creating
+  a new account; on edit it is only validated when a new one is supplied.
+  The `allowed_*` fields define, per guest, which pages, dashboard sections,
+  and ventures the account is permitted to see.
+  """
+  def guest_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [
+      :email,
+      :password,
+      :allowed_pages,
+      :allowed_sections,
+      :allowed_venture_codes
+    ])
+    |> put_change(:role, :guest)
+    |> validate_email(opts)
+    |> maybe_validate_guest_password(opts)
+  end
+
+  defp maybe_validate_guest_password(changeset, opts) do
+    new_record? = is_nil(get_field(changeset, :id))
+    password_changed? = not is_nil(get_change(changeset, :password))
+
+    if new_record? or password_changed? do
+      validate_password(changeset, opts)
+    else
+      changeset
+    end
   end
 
   defp validate_email(changeset, opts) do

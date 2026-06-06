@@ -19,7 +19,7 @@
             <p class="sidebar-section-label">Operations</p>
             <nav class="sidebar-nav">
               <a
-                :for={item <- app_navigation()}
+                :for={item <- app_navigation(@current_user)}
                 href={item.path}
                 class={sidebar_link_class(assigns[:page_title], item.title)}
                 aria-current={if(assigns[:page_title] == item.title, do: "page", else: nil)}

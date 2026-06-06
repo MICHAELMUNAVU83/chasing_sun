@@ -166,6 +166,32 @@ defmodule ChasingSunWeb.UserAuth do
     end
   end
 
+  def on_mount(:ensure_operations_access, _params, session, socket) do
+    socket = mount_current_user(socket, session)
+    user = socket.assigns.current_user
+
+    cond do
+      is_nil(user) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+
+        {:halt, socket}
+
+      Scope.page_allowed?(user, page_key(socket.view)) ->
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "Your account does not have access to that page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/dashboard")
+
+        {:halt, socket}
+    end
+  end
+
   def on_mount(:ensure_admin, _params, session, socket) do
     socket = mount_current_user(socket, session)
 
@@ -243,6 +269,14 @@ defmodule ChasingSunWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   def can?(user, action), do: Scope.can?(user, action)
+
+  # Maps a LiveView module to the page key used for guest access checks.
+  # Only read-only pages get a guest-grantable key; management pages return a
+  # key guests can never hold, so they stay locked out.
+  defp page_key(ChasingSunWeb.DashboardLive.Index), do: "dashboard"
+  defp page_key(ChasingSunWeb.ForecastLive.Index), do: "forecast"
+  defp page_key(ChasingSunWeb.RecommendationLive.Index), do: "recommendations"
+  defp page_key(_view), do: "operations"
 
   defp signed_in_path(_conn), do: ~p"/dashboard"
 end

@@ -2,6 +2,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   use ChasingSunWeb, :live_view
 
   alias ChasingSun.{Analytics, Operations}
+  alias ChasingSun.Accounts.Scope
 
   @impl true
   def mount(params, _session, socket) do
@@ -61,7 +62,10 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         </div>
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        :if={Scope.section_visible?(@current_user, "summary")}
+        class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
         <.summary_card
           title="Total units"
           value={@snapshot.metrics.total_units}
@@ -86,7 +90,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         />
       </div>
 
-      <div class="panel-shell">
+      <div :if={Scope.section_visible?(@current_user, "status_board")} class="panel-shell">
             <div class="flex items-center justify-between gap-4">
               <div>
                 <p class="eyebrow">Live Estate View</p>
@@ -202,7 +206,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             </div>
           </div>
 
-          <div class="panel-shell">
+          <div :if={Scope.section_visible?(@current_user, "charts")} class="panel-shell">
             <p class="eyebrow">Visual Overview</p>
             <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
               Output, status, and projection graphs
@@ -262,7 +266,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
           </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
-        <div class="panel-shell">
+        <div :if={Scope.section_visible?(@current_user, "quick_view")} class="panel-shell">
           <p class="eyebrow">At a glance</p>
           <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
             Greenhouse quick view
@@ -355,7 +359,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             </div>
           </div>
 
-          <div class="panel-shell">
+          <div :if={Scope.section_visible?(@current_user, "recommendations")} class="panel-shell">
             <p class="eyebrow">Crop Planning</p>
             <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
               Immediate crop recommendations
@@ -398,7 +402,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         </div>
 
         <div class="grid gap-6 lg:grid-cols-2">
-          <div class="panel-shell">
+          <div :if={Scope.section_visible?(@current_user, "notifications")} class="panel-shell">
             <p class="eyebrow">Operations Alerts</p>
             <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
               Daily notifications
@@ -429,7 +433,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             </div>
           </div>
 
-          <div class="panel-shell">
+          <div :if={Scope.section_visible?(@current_user, "projections")} class="panel-shell">
             <div class="flex items-center justify-between gap-4">
               <div>
                 <p class="eyebrow">Projection</p>
@@ -471,7 +475,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
           </div>
         </div>
 
-        <div class="panel-shell">
+        <div :if={ChasingSunWeb.UserAuth.can?(@current_user, :view_operations)} class="panel-shell">
           <p class="eyebrow">Audit Trail</p>
             <h2 class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
               Recent changes
@@ -511,7 +515,10 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   end
 
   defp load_dashboard(socket, venture_code) do
-    filters = filters_for(venture_code)
+    allowed_codes = Scope.visible_venture_codes(socket.assigns[:current_user])
+    ventures = visible_ventures(allowed_codes)
+    venture_code = sanitize_venture_code(venture_code, allowed_codes)
+    filters = filters_for(venture_code, allowed_codes)
     snapshot = Analytics.dashboard(filters)
     forecast = Analytics.forecast(filters)
     rules = Operations.list_crop_rules()
@@ -522,7 +529,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
     assign(socket,
       selected_venture: venture_code,
-      ventures: Operations.list_ventures(),
+      ventures: ventures,
       snapshot: snapshot,
       forecast: forecast,
       greenhouse_rows: greenhouse_rows,
@@ -596,8 +603,36 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     end
   end
 
+  # No guest venture restriction: behave as before.
+  defp filters_for(venture_code, nil), do: filters_for(venture_code)
+  # Guest restricted to a set of ventures: a specific (allowed) selection wins,
+  # otherwise constrain "all" to the allowed set so nothing else leaks in.
+  defp filters_for("all", allowed_codes), do: %{venture_codes: allowed_codes}
+
+  defp filters_for(venture_code, allowed_codes) do
+    if venture_code in allowed_codes do
+      %{venture_code: venture_code}
+    else
+      %{venture_codes: allowed_codes}
+    end
+  end
+
   defp filters_for("all"), do: %{}
   defp filters_for(venture_code), do: %{venture_code: venture_code}
+
+  defp visible_ventures(nil), do: Operations.list_ventures()
+
+  defp visible_ventures(allowed_codes) do
+    Enum.filter(Operations.list_ventures(), &(&1.code in allowed_codes))
+  end
+
+  # Keep guests from forcing an out-of-scope venture via the URL.
+  defp sanitize_venture_code(venture_code, nil), do: venture_code
+  defp sanitize_venture_code("all", _allowed_codes), do: "all"
+
+  defp sanitize_venture_code(venture_code, allowed_codes) do
+    if venture_code in allowed_codes, do: venture_code, else: "all"
+  end
 
   defp format_quantity(value), do: format_number(value, decimals: 1)
   defp format_count(nil), do: "-"

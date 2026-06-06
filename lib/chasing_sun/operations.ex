@@ -117,6 +117,7 @@ defmodule ChasingSun.Operations do
 
     greenhouse_query
     |> maybe_filter_venture(venture_code)
+    |> maybe_filter_venture_codes(Map.get(filters, :venture_codes))
     |> Repo.all()
   end
 
@@ -247,6 +248,7 @@ defmodule ChasingSun.Operations do
 
     query
     |> maybe_filter_joined_venture(venture_code)
+    |> maybe_filter_joined_venture_codes(Map.get(filters, :venture_codes))
     |> Repo.all()
     |> Repo.preload(greenhouse: :venture)
   end
@@ -263,6 +265,7 @@ defmodule ChasingSun.Operations do
 
     query
     |> maybe_filter_joined_venture(venture_code)
+    |> maybe_filter_joined_venture_codes(Map.get(filters, :venture_codes))
     |> Repo.all()
     |> Repo.preload(greenhouse: :venture)
   end
@@ -529,6 +532,23 @@ defmodule ChasingSun.Operations do
   defp maybe_filter_joined_venture(query, code) do
     from [source, greenhouse, venture] in query, where: venture.code == ^String.downcase(code)
   end
+
+  defp maybe_filter_venture_codes(query, codes) when is_list(codes) and codes != [] do
+    codes = Enum.map(codes, &String.downcase/1)
+
+    from greenhouse in query,
+      join: venture in assoc(greenhouse, :venture),
+      where: venture.code in ^codes
+  end
+
+  defp maybe_filter_venture_codes(query, _codes), do: query
+
+  defp maybe_filter_joined_venture_codes(query, codes) when is_list(codes) and codes != [] do
+    codes = Enum.map(codes, &String.downcase/1)
+    from [_source, _greenhouse, venture] in query, where: venture.code in ^codes
+  end
+
+  defp maybe_filter_joined_venture_codes(query, _codes), do: query
 
   defp maybe_persist_cycle(multi, greenhouse_key, cycle_attrs, rules) do
     if meaningful_cycle_attrs?(cycle_attrs) do

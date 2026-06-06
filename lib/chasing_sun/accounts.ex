@@ -86,6 +86,55 @@ defmodule ChasingSun.Accounts do
     |> Repo.update()
   end
 
+  ## Guest account management (admin)
+
+  @doc """
+  Lists all guest accounts, newest first.
+  """
+  def list_guest_users do
+    Repo.all(from u in User, where: u.role == :guest, order_by: [desc: u.inserted_at])
+  end
+
+  @doc """
+  Fetches a single guest account. Raises if the user is not a guest.
+  """
+  def get_guest_user!(id), do: Repo.get_by!(User, id: id, role: :guest)
+
+  @doc """
+  Creates a guest account with per-account view restrictions.
+  """
+  def create_guest_user(attrs) do
+    %User{}
+    |> User.guest_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a guest account. A blank password leaves the existing one untouched.
+  """
+  def update_guest_user(%User{} = user, attrs) do
+    user
+    |> User.guest_changeset(drop_blank_password(attrs))
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns a changeset for tracking guest account form changes.
+  """
+  def change_guest_user(%User{} = user, attrs \\ %{}) do
+    User.guest_changeset(user, attrs, hash_password: false)
+  end
+
+  def delete_user(%User{} = user), do: Repo.delete(user)
+
+  defp drop_blank_password(attrs) do
+    case attrs do
+      %{"password" => password} when password in [nil, ""] -> Map.delete(attrs, "password")
+      %{password: password} when password in [nil, ""] -> Map.delete(attrs, :password)
+      _ -> attrs
+    end
+  end
+
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 

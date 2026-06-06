@@ -50,22 +50,46 @@ defmodule ChasingSunWeb.Layouts do
     ]
   end
 
-  def app_navigation do
-    [
-      %{title: "Dashboard", path: ~p"/dashboard"},
-      %{title: "Recommendations", path: ~p"/recommendations"},
-      %{title: "Greenhouses", path: ~p"/greenhouses"},
-      %{title: "Farm Visits", path: ~p"/farm-visits", label: "Visits"},
-      %{title: "Harvest Records", path: ~p"/harvest-records", label: "Harvest"},
-      %{title: "Performance", path: ~p"/performance"},
-      %{title: "Forecast", path: ~p"/forecast"}
-    ]
+  alias ChasingSun.Accounts.Scope
+
+  def app_navigation(current_user \\ nil) do
+    dashboard = %{title: "Dashboard", path: ~p"/dashboard"}
+
+    cond do
+      ChasingSunWeb.UserAuth.can?(current_user, :view_operations) ->
+        [
+          dashboard,
+          %{title: "Recommendations", path: ~p"/recommendations"},
+          %{title: "Greenhouses", path: ~p"/greenhouses"},
+          %{title: "Farm Visits", path: ~p"/farm-visits", label: "Visits"},
+          %{title: "Harvest Records", path: ~p"/harvest-records", label: "Harvest"},
+          %{title: "Performance", path: ~p"/performance"},
+          %{title: "Forecast", path: ~p"/forecast"}
+        ]
+
+      Scope.guest?(current_user) ->
+        [dashboard | guest_extra_navigation(current_user)]
+
+      true ->
+        [dashboard]
+    end
+  end
+
+  defp guest_extra_navigation(current_user) do
+    Enum.filter(
+      [
+        %{title: "Recommendations", path: ~p"/recommendations", key: "recommendations"},
+        %{title: "Forecast", path: ~p"/forecast", key: "forecast"}
+      ],
+      &Scope.page_allowed?(current_user, &1.key)
+    )
   end
 
   def admin_navigation do
     [
       %{title: "Ventures", path: ~p"/admin/ventures"},
       %{title: "Crop Rules", path: ~p"/admin/crop-rules"},
+      %{title: "Guest Accounts", path: ~p"/admin/guests", label: "Guests"},
       %{title: "Admin Guide", path: ~p"/admin/guide"}
     ]
   end
