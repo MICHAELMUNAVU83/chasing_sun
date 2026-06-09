@@ -63,6 +63,69 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
         />
       </div>
 
+      <div
+        :if={not Enum.empty?(@expansions)}
+        class="panel-shell border-2 border-[var(--brand-green-deep)]"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="section-heading">New greenhouse construction</h2>
+          <span class="inline-flex items-center rounded-full bg-[var(--brand-green-deep)] px-3 py-0.5 text-xs font-semibold text-white">
+            Expansion advised
+          </span>
+        </div>
+
+        <p class="mt-2 text-sm text-[var(--muted)]">
+          Based on actual harvest weights over the last few weeks, output for these crops is below target. Construction is suggested to keep weekly produce above the threshold.
+        </p>
+
+        <div class="mt-6 grid gap-4 md:grid-cols-2">
+          <div :for={expansion <- @expansions} class="rounded-xl border border-zinc-200 p-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-base font-semibold text-[var(--ink)]">{expansion.crop_type}</p>
+                <p class="mt-1 text-sm text-[var(--muted)]">
+                  {round_kg(expansion.average_actual)} kg/week actual · target {round_kg(
+                    expansion.threshold
+                  )} kg/week
+                </p>
+              </div>
+              <span class="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                Avg over {expansion.weeks_observed} wks
+              </span>
+            </div>
+
+            <div class="mt-4 flex items-center gap-4">
+              <div class="flex-1">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Units to build</p>
+                <p class="mt-1 text-sm font-medium text-[var(--ink)]">
+                  {expansion.units_needed} × {expansion.unit_size}
+                </p>
+              </div>
+              <div class="flex-1">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Suggested names</p>
+                <p class="mt-1 text-sm font-medium text-[var(--brand-green-deep)]">
+                  {suggested_names_label(expansion.suggested_names)}
+                </p>
+              </div>
+            </div>
+
+            <p class="mt-4 text-sm text-[var(--muted)]">{expansion.note}</p>
+
+            <div class="mt-4 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
+              <span class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1">
+                Start construction {format_date(expansion.construction_start_date)}
+              </span>
+              <span class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1">
+                First harvest {format_date(expansion.first_harvest_date)}
+              </span>
+              <span class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1">
+                Short {round_kg(expansion.deficit)} kg/week
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="grid gap-8 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,1fr)]">
         <div class="panel-shell">
           <div class="flex items-center justify-between gap-4">
@@ -161,10 +224,7 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
             <h2 class="section-heading">Alerts</h2>
 
             <div class="mt-6 space-y-3">
-              <div
-                :for={notification <- @notifications}
-                class="rounded-xl border border-zinc-200 p-4"
-              >
+              <div :for={notification <- @notifications} class="rounded-xl border border-zinc-200 p-4">
                 <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
                 <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
                 <p class="mt-3 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -203,6 +263,7 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
       selected_venture: venture_code,
       ventures: Operations.list_ventures(),
       recommendations: Operations.list_operation_recommendations(filters),
+      expansions: Operations.expansion_recommendations(),
       notifications: Operations.recent_operation_notifications(8, filters)
     )
   end
@@ -257,6 +318,12 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
   defp is_nil_or_blank(nil), do: true
   defp is_nil_or_blank(""), do: true
   defp is_nil_or_blank(_value), do: false
+
+  defp round_kg(value) when is_number(value), do: round(value)
+  defp round_kg(_value), do: 0
+
+  defp suggested_names_label([]), do: "TBD"
+  defp suggested_names_label(names), do: Enum.join(names, ", ")
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "TBD"

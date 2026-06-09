@@ -12,6 +12,7 @@ defmodule ChasingSun.Operations do
     CropCycle,
     CropPlanner,
     CropRule,
+    ExpansionEngine,
     FarmVisitGreenhouseStatus,
     FarmVisitReport,
     Greenhouse,
@@ -269,6 +270,48 @@ defmodule ChasingSun.Operations do
     |> Repo.all()
     |> Repo.preload(greenhouse: :venture)
   end
+
+  @doc """
+  Farm-wide new-greenhouse construction recommendations.
+
+  Looks at the actual weekly weights harvested per crop and, when a crop's
+  rolling average drops below its threshold, suggests how many new units to
+  build, the construction/first-harvest dates, and names drawn from unused
+  Kenyan counties. Always evaluated farm-wide regardless of any venture filter.
+  """
+  def expansion_recommendations(today \\ Date.utc_today()) do
+    rules = list_crop_rules()
+    weekly_by_crop = weekly_actual_totals_by_crop(Map.keys(ExpansionEngine.thresholds()))
+    used_names = all_greenhouse_names()
+
+    ExpansionEngine.recommendations(weekly_by_crop, rules, used_names, today)
+  end
+
+  defp all_greenhouse_names do
+    Repo.all(from greenhouse in Greenhouse, select: greenhouse.name)
+  end
+
+  # Sum of actual harvest weight per crop type per week, keyed by crop type.
+  # Crop type is read from the harvest record's crop cycle so historical
+  # rotations stay accurate.
+  defp weekly_actual_totals_by_crop(crop_types) do
+    from(record in ChasingSun.Harvesting.HarvestRecord,
+      join: cycle in assoc(record, :crop_cycle),
+      where: cycle.crop_type in ^crop_types,
+      group_by: [cycle.crop_type, record.week_ending_on],
+      select: {cycle.crop_type, record.week_ending_on, sum(record.actual_yield)}
+    )
+    |> Repo.all()
+    |> Enum.group_by(
+      fn {crop_type, _week, _total} -> crop_type end,
+      fn {_crop_type, week, total} -> {week, to_float(total)} end
+    )
+  end
+
+  defp to_float(nil), do: 0.0
+  defp to_float(value) when is_float(value), do: value
+  defp to_float(value) when is_integer(value), do: value * 1.0
+  defp to_float(%Decimal{} = value), do: Decimal.to_float(value)
 
   def refresh_daily_operations(today \\ Date.utc_today()) do
     rules = list_crop_rules()
