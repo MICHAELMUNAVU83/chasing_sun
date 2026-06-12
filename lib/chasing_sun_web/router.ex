@@ -37,6 +37,7 @@ defmodule ChasingSunWeb.Router do
     scope "/", ChasingSunWeb do
       pipe_through [:browser, :require_authenticated_user]
 
+      get "/performance/export", PerformanceExportController, :show
       live "/recommendations", RecommendationLive.Index, :index
       live "/greenhouses", GreenhouseLive.Index, :index
       live "/greenhouses/:id", GreenhouseLive.Show, :show

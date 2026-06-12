@@ -1,8 +1,7 @@
 defmodule ChasingSun.Analytics do
   @moduledoc false
 
-  alias ChasingSun.Analytics.{ForecastEngine, ProjectionEngine}
-  alias ChasingSun.Harvesting
+  alias ChasingSun.Analytics.{ForecastEngine, PerformanceReport, ProjectionEngine}
   alias ChasingSun.Operations
   alias ChasingSun.Operations.CropPlanner
 
@@ -10,52 +9,7 @@ defmodule ChasingSun.Analytics do
     Operations.dashboard_snapshot(filters)
   end
 
-  def performance_report(filters \\ %{}) do
-    rules = Operations.list_crop_rules()
-
-    rows =
-      filters
-      |> Harvesting.list_harvest_records()
-      |> Enum.map(fn record ->
-        crop_type = record.crop_cycle && record.crop_cycle.crop_type
-
-        expected =
-          CropPlanner.expected_yield(
-            crop_type,
-            record.crop_cycle && record.crop_cycle.plant_count,
-            rules
-          )
-
-        price_per_kg = record.price_per_kg || CropPlanner.price_for(crop_type, rules)
-        revenue = record.actual_yield * price_per_kg
-        variance = record.actual_yield - expected
-
-        %{
-          id: record.id,
-          month: Calendar.strftime(record.week_ending_on, "%b %Y"),
-          greenhouse_name: record.greenhouse.name,
-          venture_code: record.greenhouse.venture.code,
-          crop_type: crop_type,
-          week_ending_on: record.week_ending_on,
-          actual_yield: record.actual_yield,
-          expected_yield: expected,
-          variance: variance,
-          variance_pct: variance_pct(variance, expected),
-          revenue: revenue,
-          record: record
-        }
-      end)
-
-    %{
-      rows: rows,
-      monthly: Enum.group_by(rows, & &1.month),
-      summary: %{
-        total_actual: Enum.reduce(rows, 0.0, &(&1.actual_yield + &2)),
-        total_expected: Enum.reduce(rows, 0.0, &(&1.expected_yield + &2)),
-        total_revenue: Enum.reduce(rows, 0.0, &(&1.revenue + &2))
-      }
-    }
-  end
+  def performance_report(filters \\ %{}), do: PerformanceReport.build(filters)
 
   def next_saturday_projection(filters \\ %{}) do
     rules = Operations.list_crop_rules()
@@ -98,7 +52,4 @@ defmodule ChasingSun.Analytics do
       projection: next_saturday_projection(filters)
     }
   end
-
-  defp variance_pct(_variance, 0.0), do: 0.0
-  defp variance_pct(variance, expected), do: variance / expected * 100.0
 end

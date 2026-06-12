@@ -246,6 +246,9 @@ Responsibilities:
 - expected vs actual comparison
 - revenue estimates
 - monthly grouping
+- weekly, monthly, and season greenhouse rollups
+- estate-wide monthly performance summaries by greenhouse
+- crop-age-aware peer benchmarking for like crops in like-sized units
 - trend projections
 - forecast generation
 
@@ -460,15 +463,21 @@ Purpose:
 
 - compare actual vs expected output
 - show revenue estimate
-- group by month
-- support inline yield edits
+- support weekly, monthly, and season views
+- provide greenhouse-level and estate-level reporting
+- support Excel export and print-friendly output
+- surface benchmarking insights that account for crop age within the unit
 
 Components:
 
 - summary cards
 - venture filter tabs
-- next-Saturday projection card
-- monthly grouped table
+- period switcher (`week`, `month`, `season`)
+- greenhouse selector
+- greenhouse performance table
+- monthly estate rollup table
+- export action bar
+- insights panel
 - inline edit modal
 
 ### 5. Forecast LiveView
@@ -595,6 +604,23 @@ Revenue remains a simple estimate for now:
 $$
 revenue = actual\_yield \times price\_per\_unit
 $$
+
+### Season Reporting
+
+For performance reporting, a season should mean the crop cycle's harvest window:
+
+- season start = `harvest_start_date`
+- season end = `harvest_end_date`
+- season totals should aggregate all harvest records within that window for the selected greenhouse or matching estate view
+
+### Peer Benchmarking
+
+Performance insights should compare units only when the comparison is agronomically fair:
+
+- compare only greenhouses growing the same crop type
+- compare only like-sized units together
+- factor in crop age within the harvest window so later-stage yield taper is expected
+- avoid simplistic "best vs worst" rankings that ignore cycle duration
 
 ### Variance
 
@@ -748,11 +774,12 @@ The first production-ready version should include:
 3. crop cycle management
 4. harvest input upsert flow
 5. dashboard with venture filters
-6. performance report with monthly grouping
+6. performance report with weekly / monthly / season grouping
 7. forecast page with 8-week output
 8. next-Saturday projection card
-9. legacy JSON importer
-10. baseline test coverage
+9. Excel export for greenhouse and estate performance reports
+10. legacy JSON importer
+11. baseline test coverage
 
 ## Final Build Intent
 

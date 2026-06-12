@@ -15,6 +15,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     {:ok,
      socket
      |> assign(:page_title, "Dashboard")
+     |> assign(:collapsed_sections, default_collapsed_sections())
      |> assign(:selected_greenhouse_id, nil)
      |> load_dashboard(venture_code)}
   end
@@ -27,6 +28,13 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   @impl true
   def handle_event("select_greenhouse", %{"greenhouse_id" => greenhouse_id}, socket) do
     {:noreply, assign(socket, :selected_greenhouse_id, parse_optional_int(greenhouse_id))}
+  end
+
+  def handle_event("toggle_section", %{"section" => section}, socket) do
+    {:noreply,
+     update(socket, :collapsed_sections, fn collapsed_sections ->
+       Map.update(collapsed_sections, section, false, &(!&1))
+     end)}
   end
 
   @impl true
@@ -158,9 +166,19 @@ defmodule ChasingSunWeb.DashboardLive.Index do
           </div>
 
           <div :if={Scope.section_visible?(@current_user, "charts")} class="panel-shell">
-            <h2 class="section-heading">Output, status, and projection graphs</h2>
+            <div class="flex items-center justify-between gap-4">
+              <h2 class="section-heading">Output, status, and projection graphs</h2>
+              <button
+                type="button"
+                phx-click="toggle_section"
+                phx-value-section="charts"
+                class="action-link"
+              >
+                {toggle_label(@collapsed_sections, "charts")}
+              </button>
+            </div>
 
-            <div class="mt-6 grid gap-4 md:grid-cols-2">
+            <div :if={!section_collapsed?(@collapsed_sections, "charts")} class="mt-6 grid gap-4 md:grid-cols-2">
               <div class="chart-shell">
                 <p class="text-sm font-semibold text-[var(--ink)]">Expected output by greenhouse</p>
                 <div class="chart-frame">
@@ -215,8 +233,19 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
       <div class="grid gap-6 lg:grid-cols-2">
         <div :if={Scope.section_visible?(@current_user, "quick_view")} class="panel-shell">
-          <h2 class="section-heading">Greenhouse quick view</h2>
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="section-heading">Greenhouse quick view</h2>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="quick_view"
+              class="action-link"
+            >
+              {toggle_label(@collapsed_sections, "quick_view")}
+            </button>
+          </div>
 
+            <div :if={!section_collapsed?(@collapsed_sections, "quick_view")}>
             <form class="mt-6" phx-change="select_greenhouse">
               <label class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
                 Greenhouse
@@ -299,6 +328,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             >
               Pick a greenhouse to preview its timeline.
             </div>
+            </div>
           </div>
 
           <div :if={Scope.section_visible?(@current_user, "recommendations")} class="panel-shell">
@@ -339,9 +369,19 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
         <div class="grid gap-6 lg:grid-cols-2">
           <div :if={Scope.section_visible?(@current_user, "notifications")} class="panel-shell">
-            <h2 class="section-heading">Daily notifications</h2>
+            <div class="flex items-center justify-between gap-4">
+              <h2 class="section-heading">Daily notifications</h2>
+              <button
+                type="button"
+                phx-click="toggle_section"
+                phx-value-section="notifications"
+                class="action-link"
+              >
+                {toggle_label(@collapsed_sections, "notifications")}
+              </button>
+            </div>
 
-            <div class="mt-6 space-y-4">
+            <div :if={!section_collapsed?(@collapsed_sections, "notifications")} class="mt-6 space-y-4">
               <div
                 :for={notification <- @notifications}
                 class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
@@ -369,10 +409,20 @@ defmodule ChasingSunWeb.DashboardLive.Index do
           <div :if={Scope.section_visible?(@current_user, "projections")} class="panel-shell">
             <div class="flex items-center justify-between gap-4">
               <h2 class="section-heading">Next Saturday outlook</h2>
-              <.link navigate={~p"/forecast"} class="action-link">View 8-week forecast</.link>
+              <div class="flex items-center gap-4">
+                <.link navigate={~p"/forecast"} class="action-link">View 8-week forecast</.link>
+                <button
+                  type="button"
+                  phx-click="toggle_section"
+                  phx-value-section="projections"
+                  class="action-link"
+                >
+                  {toggle_label(@collapsed_sections, "projections")}
+                </button>
+              </div>
             </div>
 
-            <div class="mt-6 space-y-4">
+            <div :if={!section_collapsed?(@collapsed_sections, "projections")} class="mt-6 space-y-4">
               <div
                 :for={projection <- Enum.take(@forecast.projection, 4)}
                 class="rounded-[1.5rem] border border-[var(--line)] p-4"
@@ -562,6 +612,22 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp format_quantity(value), do: format_number(value, decimals: 1)
   defp format_count(nil), do: "-"
   defp format_count(value), do: format_number(value, decimals: 0)
+
+  defp default_collapsed_sections do
+    %{
+      "charts" => true,
+      "quick_view" => true,
+      "notifications" => true,
+      "projections" => true
+    }
+  end
+
+  defp section_collapsed?(collapsed_sections, section),
+    do: Map.get(collapsed_sections, section, false)
+
+  defp toggle_label(collapsed_sections, section) do
+    if section_collapsed?(collapsed_sections, section), do: "Show", else: "Hide"
+  end
 
   defp format_date(nil), do: "TBD"
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
