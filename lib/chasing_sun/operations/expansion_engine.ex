@@ -27,6 +27,7 @@ defmodule ChasingSun.Operations.ExpansionEngine do
   # average over the most recent weeks within this window.
   @min_weeks 4
   @window_weeks 8
+  @near_harvest_lookahead_days 35
 
   @doc "Weekly weight (kg) each crop must stay at or above."
   def thresholds, do: @thresholds
@@ -37,6 +38,8 @@ defmodule ChasingSun.Operations.ExpansionEngine do
 
   def new_unit_plant_count, do: @new_unit_plant_count
 
+  def near_harvest_lookahead_days, do: @near_harvest_lookahead_days
+
   @doc """
   Builds expansion recommendations for every crop that has fallen below its
   weekly threshold.
@@ -45,14 +48,30 @@ defmodule ChasingSun.Operations.ExpansionEngine do
   tuples (the farm-wide actual weight for that week). `used_names` is the list
   of greenhouse names already taken, so suggestions avoid them.
   """
-  def recommendations(weekly_by_crop, rules, used_names, today \\ Date.utc_today()) do
+  def recommendations(weekly_by_crop, rules, used_names) do
+    recommendations(weekly_by_crop, rules, used_names, %{}, Date.utc_today())
+  end
+
+  def recommendations(weekly_by_crop, rules, used_names, today) when is_struct(today, Date) do
+    recommendations(weekly_by_crop, rules, used_names, %{}, today)
+  end
+
+  def recommendations(weekly_by_crop, rules, used_names, upcoming_by_crop, today) do
     available_counties = available_counties(used_names)
 
     {recommendations, _remaining} =
       @thresholds
       |> Enum.sort_by(fn {crop, _threshold} -> crop end)
       |> Enum.reduce({[], available_counties}, fn {crop, threshold}, {acc, counties} ->
-        case build_for_crop(crop, threshold, weekly_by_crop, rules, counties, today) do
+        case build_for_crop(
+               crop,
+               threshold,
+               weekly_by_crop,
+               rules,
+               counties,
+               upcoming_by_crop,
+               today
+             ) do
           nil ->
             {acc, counties}
 
@@ -126,19 +145,22 @@ defmodule ChasingSun.Operations.ExpansionEngine do
     end)
   end
 
-  defp build_for_crop(crop, threshold, weekly_by_crop, rules, counties, today) do
+  defp build_for_crop(crop, threshold, weekly_by_crop, rules, counties, upcoming_by_crop, today) do
     weeks =
       weekly_by_crop
       |> Map.get(crop, [])
       |> Enum.sort_by(fn {week, _total} -> week end, {:desc, Date})
       |> Enum.take(@window_weeks)
 
+    upcoming_weekly_yield = Map.get(upcoming_by_crop, crop, 0.0)
+
     with true <- length(weeks) >= @min_weeks,
          average <- average_weekly(weeks),
-         true <- average < threshold,
+         adjusted_average <- average + upcoming_weekly_yield,
+         true <- adjusted_average < threshold,
          unit_yield when unit_yield > 0 <-
            CropPlanner.expected_yield(crop, @new_unit_plant_count, rules) do
-      deficit = threshold - average
+      deficit = threshold - adjusted_average
       units_needed = ceil(deficit / unit_yield)
       suggested_names = Enum.take(counties, units_needed)
       first_harvest_date = first_harvest_date(crop, rules, today)
@@ -148,6 +170,7 @@ defmodule ChasingSun.Operations.ExpansionEngine do
         threshold: threshold,
         weeks_observed: length(weeks),
         average_actual: Float.round(average, 1),
+        upcoming_weekly_yield: Float.round(upcoming_weekly_yield, 1),
         deficit: Float.round(deficit, 1),
         unit_size: @new_unit_size,
         unit_plant_count: @new_unit_plant_count,
@@ -159,7 +182,16 @@ defmodule ChasingSun.Operations.ExpansionEngine do
         first_harvest_date: first_harvest_date,
         generated_on: today,
         note:
-          note(crop, threshold, average, units_needed, suggested_names, today, first_harvest_date)
+          note(
+            crop,
+            threshold,
+            average,
+            upcoming_weekly_yield,
+            units_needed,
+            suggested_names,
+            today,
+            first_harvest_date
+          )
       }
     else
       _ -> nil
@@ -182,7 +214,16 @@ defmodule ChasingSun.Operations.ExpansionEngine do
     Date.add(today, @construction_days + nursery_days + days_to_harvest)
   end
 
-  defp note(crop, threshold, average, units_needed, suggested_names, today, first_harvest_date) do
+  defp note(
+         crop,
+         threshold,
+         average,
+         upcoming_weekly_yield,
+         units_needed,
+         suggested_names,
+         today,
+         first_harvest_date
+       ) do
     names =
       case suggested_names do
         [] -> "a new unit"
@@ -191,8 +232,15 @@ defmodule ChasingSun.Operations.ExpansionEngine do
 
     unit_word = if units_needed == 1, do: "greenhouse", else: "greenhouses"
 
+    future_context =
+      if upcoming_weekly_yield > 0 do
+        " About #{round(upcoming_weekly_yield)} kg/week is already expected from units nearing harvest, but the crop still sits below target."
+      else
+        ""
+      end
+
     "#{crop} is averaging #{round(average)} kg/week of actual harvest, below the " <>
-      "#{round(threshold)} kg/week target. Build #{units_needed} new #{unit_word} " <>
+      "#{round(threshold)} kg/week target.#{future_context} Build #{units_needed} new #{unit_word} " <>
       "(suggested: #{names}). Start construction by #{format_date(today)} so the first " <>
       "harvest lands around #{format_date(first_harvest_date)} and weekly output recovers " <>
       "above target."

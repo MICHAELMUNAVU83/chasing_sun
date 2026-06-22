@@ -88,6 +88,9 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
                     expansion.threshold
                   )} kg/week
                 </p>
+                <p :if={expansion.upcoming_weekly_yield > 0} class="mt-1 text-xs text-[var(--muted)]">
+                  Includes about {round_kg(expansion.upcoming_weekly_yield)} kg/week from units nearing harvest.
+                </p>
               </div>
               <span class="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">
                 Avg over {expansion.weeks_observed} wks

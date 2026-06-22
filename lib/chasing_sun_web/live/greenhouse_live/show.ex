@@ -28,6 +28,32 @@ defmodule ChasingSunWeb.GreenhouseLive.Show do
   end
 
   @impl true
+  def handle_event("terminate_production", _params, socket) do
+    if ChasingSunWeb.UserAuth.can?(socket.assigns.current_user, :manage_greenhouses) do
+      greenhouse = Operations.get_greenhouse!(socket.assigns.greenhouse_id)
+
+      case Operations.terminate_production(greenhouse, socket.assigns.current_user) do
+        {:ok, _cycle} ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :info,
+             "Production terminated. Soil recovery has started for this greenhouse."
+           )
+           |> load_greenhouse()}
+
+        {:error, :no_active_cycle} ->
+          {:noreply, put_flash(socket, :error, "No active crop cycle is available to stop.")}
+
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply, put_flash(socket, :error, changeset_error_summary(changeset))}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You do not have permission to manage greenhouses.")}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <section class="space-y-6">
@@ -94,15 +120,22 @@ defmodule ChasingSunWeb.GreenhouseLive.Show do
                 </p>
               </div>
 
+              <button
+                :if={@cycle && @cycle.status_cache == :harvesting}
+                type="button"
+                phx-click="terminate_production"
+                data-confirm="Stop production now and start soil recovery for this greenhouse?"
+                class="mt-5 inline-flex items-center rounded-[1.25rem] bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-700"
+              >
+                Terminate production
+              </button>
+
               <dl class="mt-6 grid gap-3 sm:grid-cols-2">
                 <.detail label="Nursery date" value={format_date(cycle.nursery_date)} />
                 <.detail label="Transplant date" value={format_date(cycle.transplant_date)} />
                 <.detail label="Harvest start" value={format_date(cycle.harvest_start_date)} />
                 <.detail label="Harvest end" value={format_date(cycle.harvest_end_date)} />
-                <.detail
-                  label="Soil recovery end"
-                  value={format_date(cycle.soil_recovery_end_date)}
-                />
+                <.detail label="Soil recovery end" value={format_date(cycle.soil_recovery_end_date)} />
               </dl>
           <% end %>
         </div>
@@ -221,4 +254,13 @@ defmodule ChasingSunWeb.GreenhouseLive.Show do
 
   defp format_date(nil), do: "-"
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
+
+  defp changeset_error_summary(changeset) do
+    changeset
+    |> Ecto.Changeset.traverse_errors(fn {message, _opts} -> message end)
+    |> Enum.flat_map(fn {field, messages} ->
+      Enum.map(messages, &"#{Phoenix.Naming.humanize(field)} #{&1}")
+    end)
+    |> Enum.join(", ")
+  end
 end

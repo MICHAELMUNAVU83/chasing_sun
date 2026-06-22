@@ -127,7 +127,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
           <p class="eyebrow">Harvest Capture</p>
           <h1 class="page-title">Weekly yield records</h1>
           <p class="page-copy">
-            Record actual harvest by greenhouse and week. Existing records for the same greenhouse and week are updated in place.
+            Record actual harvest by greenhouse and date. Pick the real harvest date for the week, even if it is not a Saturday. Existing records for the same greenhouse and date are updated in place.
           </p>
 
           <div class="mt-6 flex flex-wrap gap-2">
@@ -349,6 +349,9 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               label="Week ending on"
               required
             />
+            <p class="text-xs text-[var(--muted)]">
+              Use the actual harvest date. It can be any day of the week.
+            </p>
             <.input
               field={@harvest_form[:grade]}
               type="text"
@@ -414,10 +417,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
         to_form(
           %{
             "greenhouse_id" => default_greenhouse_id,
-            "week_ending_on" =>
-              Date.utc_today()
-              |> ChasingSun.Operations.CropPlanner.next_saturday()
-              |> Date.to_iso8601(),
+            "week_ending_on" => Date.utc_today() |> Date.to_iso8601(),
             "actual_yield" => "",
             "price_per_kg" => "",
             "grade" => "",

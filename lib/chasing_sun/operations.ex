@@ -277,14 +277,49 @@ defmodule ChasingSun.Operations do
   Looks at the actual weekly weights harvested per crop and, when a crop's
   rolling average drops below its threshold, suggests how many new units to
   build, the construction/first-harvest dates, and names drawn from unused
-  Kenyan counties. Always evaluated farm-wide regardless of any venture filter.
+  Kenyan counties. Units that are about to enter harvest are counted before
+  making a construction call so we do not overbuild while production is already
+  coming online. Always evaluated farm-wide regardless of any venture filter.
   """
   def expansion_recommendations(today \\ Date.utc_today()) do
     rules = list_crop_rules()
     weekly_by_crop = weekly_actual_totals_by_crop(Map.keys(ExpansionEngine.thresholds()))
+    upcoming_by_crop = upcoming_weekly_totals_by_crop(rules, today)
     used_names = all_greenhouse_names()
 
-    ExpansionEngine.recommendations(weekly_by_crop, rules, used_names, today)
+    ExpansionEngine.recommendations(weekly_by_crop, rules, used_names, upcoming_by_crop, today)
+  end
+
+  def terminate_production(%Greenhouse{} = greenhouse, actor \\ nil, today \\ Date.utc_today()) do
+    case current_cycle(greenhouse) do
+      nil ->
+        {:error, :no_active_cycle}
+
+      %CropCycle{} = cycle ->
+        harvest_end_date = Date.add(today, -1)
+        soil_recovery_end_date = Date.add(today, CropPlanner.soil_recovery_days() - 1)
+
+        Multi.new()
+        |> Multi.update(
+          :cycle,
+          CropCycle.changeset(cycle, %{
+            harvest_end_date: harvest_end_date,
+            soil_recovery_end_date: soil_recovery_end_date,
+            status_cache: :soil_turning
+          })
+        )
+        |> Multi.run(:audit, fn repo, %{cycle: updated_cycle} ->
+          insert_audit(repo, actor, "crop_cycle", updated_cycle.id, "production_terminated", %{
+            greenhouse_id: greenhouse.id,
+            greenhouse_name: greenhouse.name,
+            harvest_end_date: updated_cycle.harvest_end_date,
+            soil_recovery_end_date: updated_cycle.soil_recovery_end_date
+          })
+        end)
+        |> Repo.transaction()
+        |> tap(&maybe_enqueue_recommendation_refresh/1)
+        |> unwrap_transaction(:cycle)
+    end
   end
 
   defp all_greenhouse_names do
@@ -307,6 +342,56 @@ defmodule ChasingSun.Operations do
       fn {_crop_type, week, total} -> {week, to_float(total)} end
     )
   end
+
+  defp upcoming_weekly_totals_by_crop(rules, today) do
+    lookahead_cutoff = Date.add(today, ExpansionEngine.near_harvest_lookahead_days())
+    crop_types = Map.keys(ExpansionEngine.thresholds()) |> MapSet.new()
+
+    from(greenhouse in Greenhouse,
+      where: greenhouse.active == true,
+      preload: [
+        crop_cycles:
+          ^from(cycle in CropCycle,
+            where: is_nil(cycle.archived_at),
+            order_by: [desc: cycle.inserted_at]
+          )
+      ]
+    )
+    |> Repo.all()
+    |> Enum.reduce(%{}, fn greenhouse, acc ->
+      case current_cycle(greenhouse) do
+        %CropCycle{} = cycle ->
+          status = StatusCalculator.status_for_cycle(cycle, today)
+
+          if MapSet.member?(crop_types, cycle.crop_type) and status == :waiting and
+               upcoming_harvest?(cycle, today, lookahead_cutoff) do
+            expected_yield = CropPlanner.expected_yield(cycle, rules)
+
+            if expected_yield > 0 do
+              Map.update(acc, cycle.crop_type, expected_yield, &(&1 + expected_yield))
+            else
+              acc
+            end
+          else
+            acc
+          end
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  defp upcoming_harvest?(
+         %CropCycle{harvest_start_date: %Date{} = harvest_start_date},
+         today,
+         cutoff
+       ) do
+    Date.compare(harvest_start_date, today) in [:eq, :gt] and
+      Date.compare(harvest_start_date, cutoff) != :gt
+  end
+
+  defp upcoming_harvest?(_cycle, _today, _cutoff), do: false
 
   defp to_float(nil), do: 0.0
   defp to_float(value) when is_float(value), do: value
