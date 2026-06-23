@@ -201,7 +201,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <th>Week</th>
                 <th>Greenhouse</th>
                 <th>Venture</th>
-                <th>Crop</th>
+                <th>Harvested crop</th>
                 <th>Grade</th>
                 <th>Actual yield</th>
                 <th>Price / kg</th>
@@ -217,7 +217,12 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                   <p class="mt-1 text-xs text-[var(--muted)]">Unit {record.greenhouse.sequence_no}</p>
                 </td>
                 <td>{record.greenhouse.venture.name}</td>
-                <td>{(record.crop_cycle && record.crop_cycle.crop_type) || "No cycle"}</td>
+                <td>
+                  <p>{harvest_crop_label(record)}</p>
+                  <p :if={current_crop_hint(record)} class="mt-1 text-xs text-[var(--muted)]">
+                    {current_crop_hint(record)}
+                  </p>
+                </td>
                 <td class="text-[var(--muted)]">{blank_fallback(record.grade)}</td>
                 <td class="font-semibold text-[var(--ink)]">
                   {format_quantity(record.actual_yield)}
@@ -469,12 +474,8 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   end
 
   defp normalize_harvest_attrs(attrs, actor) do
-    greenhouse = Operations.get_greenhouse!(attrs["greenhouse_id"] || attrs[:greenhouse_id])
-    crop_cycle = Operations.current_cycle(greenhouse)
-
     attrs
     |> Map.new(fn {key, value} -> {to_string(key), value} end)
-    |> Map.put("crop_cycle_id", crop_cycle && crop_cycle.id)
     |> Map.put("inserted_by_user_id", actor && actor.id)
   end
 
@@ -509,6 +510,33 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   defp blank_fallback(nil), do: "-"
   defp blank_fallback(""), do: "-"
   defp blank_fallback(value), do: value
+
+  defp harvest_crop_label(record) do
+    (record.crop_cycle && record.crop_cycle.crop_type) || current_crop_type(record) || "No cycle"
+  end
+
+  defp current_crop_hint(record) do
+    harvested_crop = record.crop_cycle && record.crop_cycle.crop_type
+    current_crop = current_crop_type(record)
+
+    cond do
+      is_nil(current_crop) or current_crop == harvested_crop ->
+        nil
+
+      is_nil(harvested_crop) ->
+        "Current crop: #{current_crop}"
+
+      true ->
+        "Current crop now: #{current_crop}"
+    end
+  end
+
+  defp current_crop_type(record) do
+    case Operations.current_cycle(record.greenhouse) do
+      %{crop_type: crop_type} -> crop_type
+      _ -> nil
+    end
+  end
 
   defp analyze_pickup_note(socket) do
     case uploaded_entries(socket, :pickup_note) do

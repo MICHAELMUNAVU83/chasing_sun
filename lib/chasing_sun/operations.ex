@@ -198,6 +198,21 @@ defmodule ChasingSun.Operations do
   def current_cycle(%Greenhouse{crop_cycles: [cycle | _]}), do: refresh_status(cycle)
   def current_cycle(%Greenhouse{}), do: nil
 
+  def resolve_current_cycle(%Greenhouse{} = greenhouse, today \\ Date.utc_today()) do
+    greenhouse = ensure_active_cycles_loaded(greenhouse)
+    rules = list_crop_rules()
+
+    case current_cycle(greenhouse) do
+      nil ->
+        nil
+
+      %CropCycle{} = cycle ->
+        cycle = sync_status_cache(cycle, today)
+        {cycle, _notification} = maybe_rotate_cycle(greenhouse, cycle, rules, today)
+        sync_status_cache(cycle, today)
+    end
+  end
+
   def refresh_status(%CropCycle{} = cycle) do
     %{cycle | status_cache: StatusCalculator.status_for_cycle(cycle)}
   end
@@ -817,6 +832,21 @@ defmodule ChasingSun.Operations do
   defp crop_rule_default_variety(rule) do
     rule.default_variety || List.first(crop_rule_varieties(rule))
   end
+
+  defp ensure_active_cycles_loaded(
+         %Greenhouse{crop_cycles: %Ecto.Association.NotLoaded{}} = greenhouse
+       ) do
+    Repo.preload(
+      greenhouse,
+      crop_cycles:
+        from(cycle in CropCycle,
+          where: is_nil(cycle.archived_at),
+          order_by: [desc: cycle.inserted_at]
+        )
+    )
+  end
+
+  defp ensure_active_cycles_loaded(%Greenhouse{} = greenhouse), do: greenhouse
 
   defp sync_greenhouse(%Greenhouse{} = greenhouse, rules, today) do
     case current_cycle(greenhouse) do
