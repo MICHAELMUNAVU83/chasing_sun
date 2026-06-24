@@ -1,7 +1,7 @@
 defmodule ChasingSunWeb.DashboardLive.Index do
   use ChasingSunWeb, :live_view
 
-  alias ChasingSun.{Analytics, Operations}
+  alias ChasingSun.{Analytics, Harvesting, Operations}
   alias ChasingSun.Accounts.Scope
 
   @impl true
@@ -80,156 +80,159 @@ defmodule ChasingSunWeb.DashboardLive.Index do
       </div>
 
       <div :if={Scope.section_visible?(@current_user, "status_board")} class="panel-shell">
-            <div class="flex items-center justify-between gap-4">
-              <h2 class="section-heading">Status board</h2>
-              <.link navigate={~p"/greenhouses"} class="action-link">Manage greenhouses</.link>
-            </div>
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="section-heading">Status board</h2>
+          <.link navigate={~p"/greenhouses"} class="action-link">Manage greenhouses</.link>
+        </div>
 
-            <div class="mt-6 overflow-x-auto">
-              <table class="data-table status-board-table">
-                <colgroup>
-                  <col class="w-14" />
-                  <col class="min-w-[18rem]" />
-                  <col class="min-w-[14rem]" />
-                  <col class="min-w-[22rem]" />
-                  <col class="w-32" />
-                  <col class="min-w-[11rem]" />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th class="whitespace-nowrap">No</th>
-                    <th>Greenhouse</th>
-                    <th>Crop</th>
-                    <th>Cycle overview</th>
-                    <th class="whitespace-nowrap">Status</th>
-                    <th>Latest harvest</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr :for={row <- @greenhouse_rows}>
-                    <td class="font-semibold">{row.sequence_no}</td>
-                    <td>
-                      <p class="font-semibold text-[var(--ink)]">{row.name}</p>
-                      <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                        {row.venture_name} · {String.upcase(row.venture_code)}
-                      </p>
-                      <p class="mt-2 text-xs text-[var(--muted)]">
-                        Size {row.size || "-"} · Tank {row.tank || "-"}
-                      </p>
-                    </td>
-                    <td>
-                      <p>{row.crop_type || "No active cycle"}</p>
+        <div class="mt-6 overflow-x-auto">
+          <table class="data-table status-board-table">
+            <colgroup>
+              <col class="w-14" />
+              <col class="min-w-[18rem]" />
+              <col class="min-w-[14rem]" />
+              <col class="min-w-[22rem]" />
+              <col class="w-32" />
+              <col class="min-w-[11rem]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="whitespace-nowrap">No</th>
+                <th>Greenhouse</th>
+                <th>Crop</th>
+                <th>Cycle overview</th>
+                <th class="whitespace-nowrap">Status</th>
+                <th>Latest harvest</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={row <- @greenhouse_rows}>
+                <td class="font-semibold">{row.sequence_no}</td>
+                <td>
+                  <p class="font-semibold text-[var(--ink)]">{row.name}</p>
+                  <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    {row.venture_name} · {String.upcase(row.venture_code)}
+                  </p>
+                  <p class="mt-2 text-xs text-[var(--muted)]">
+                    Size {row.size || "-"} · Tank {row.tank || "-"}
+                  </p>
+                </td>
+                <td>
+                  <p>{row.crop_type || "No active cycle"}</p>
+                  <p class="mt-1 text-xs text-[var(--muted)]">
+                    {row.variety || "Variety pending"}
+                  </p>
+                  <p class="mt-2 text-xs text-[var(--muted)]">{row.crop_meta}</p>
+                </td>
+                <td>
+                  <p class="font-medium text-[var(--ink)]">
+                    {format_count(row.plant_count)} plants · {format_quantity(row.weekly_yield)}/wk
+                  </p>
+                  <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
+                  <p class="mt-2 text-xs text-[var(--muted)]">
+                    Nursery {format_date(row.nursery_date)} · Transplant {format_date(
+                      row.transplant_date
+                    )}
+                  </p>
+                  <p class="mt-1 text-xs text-[var(--muted)]">
+                    Harvest {format_date(row.harvest_start_date)} → {format_date(row.harvest_end_date)} · Soil {format_date(
+                      row.soil_recovery_end_date
+                    )}
+                  </p>
+                </td>
+                <td class="align-middle">
+                  <.status_badge status={row.status} />
+                </td>
+                <td>
+                  <%= case row.latest_harvest do %>
+                    <% nil -> %>
+                      <p class="text-[var(--muted)]">No harvest data</p>
+                    <% harvest -> %>
+                      <p class="font-semibold">{format_quantity(harvest.actual_yield)}</p>
                       <p class="mt-1 text-xs text-[var(--muted)]">
-                        {row.variety || "Variety pending"}
+                        {format_date(harvest.week_ending_on)}
                       </p>
-                      <p class="mt-2 text-xs text-[var(--muted)]">{row.crop_meta}</p>
-                    </td>
-                    <td>
-                      <p class="font-medium text-[var(--ink)]">
-                        {format_count(row.plant_count)} plants · {format_quantity(row.weekly_yield)}/wk
-                      </p>
-                      <p class="mt-1 text-xs text-[var(--muted)]">{row.output_hint}</p>
-                      <p class="mt-2 text-xs text-[var(--muted)]">
-                        Nursery {format_date(row.nursery_date)} · Transplant {format_date(
-                          row.transplant_date
-                        )}
-                      </p>
-                      <p class="mt-1 text-xs text-[var(--muted)]">
-                        Harvest {format_date(row.harvest_start_date)} → {format_date(
-                          row.harvest_end_date
-                        )} · Soil {format_date(row.soil_recovery_end_date)}
-                      </p>
-                    </td>
-                    <td class="align-middle">
-                      <.status_badge status={row.status} />
-                    </td>
-                    <td>
-                      <%= case row.latest_harvest do %>
-                        <% nil -> %>
-                          <p class="text-[var(--muted)]">No harvest data</p>
-                        <% harvest -> %>
-                          <p class="font-semibold">{format_quantity(harvest.actual_yield)}</p>
-                          <p class="mt-1 text-xs text-[var(--muted)]">
-                            {format_date(harvest.week_ending_on)}
-                          </p>
-                      <% end %>
-                    </td>
-                  </tr>
-                  <tr :if={Enum.empty?(@greenhouse_rows)}>
-                    <td colspan="6" class="text-center text-sm text-[var(--muted)]">
-                      No greenhouse records match the current filter.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  <% end %>
+                </td>
+              </tr>
+              <tr :if={Enum.empty?(@greenhouse_rows)}>
+                <td colspan="6" class="text-center text-sm text-[var(--muted)]">
+                  No greenhouse records match the current filter.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          <div :if={Scope.section_visible?(@current_user, "charts")} class="panel-shell">
-            <div class="flex items-center justify-between gap-4">
-              <h2 class="section-heading">Output, status, and projection graphs</h2>
-              <button
-                type="button"
-                phx-click="toggle_section"
-                phx-value-section="charts"
-                class="action-link"
+      <div :if={Scope.section_visible?(@current_user, "charts")} class="panel-shell">
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="section-heading">Output, status, and projection graphs</h2>
+          <button
+            type="button"
+            phx-click="toggle_section"
+            phx-value-section="charts"
+            class="action-link"
+          >
+            {toggle_label(@collapsed_sections, "charts")}
+          </button>
+        </div>
+
+        <div
+          :if={!section_collapsed?(@collapsed_sections, "charts")}
+          class="mt-6 grid gap-4 md:grid-cols-2"
+        >
+          <div class="chart-shell">
+            <p class="text-sm font-semibold text-[var(--ink)]">Expected output by greenhouse</p>
+            <div class="chart-frame">
+              <canvas
+                id="dashboard-output-chart"
+                phx-hook="ChartRenderer"
+                data-chart={Jason.encode!(output_chart(@greenhouse_rows))}
               >
-                {toggle_label(@collapsed_sections, "charts")}
-              </button>
-            </div>
-
-            <div :if={!section_collapsed?(@collapsed_sections, "charts")} class="mt-6 grid gap-4 md:grid-cols-2">
-              <div class="chart-shell">
-                <p class="text-sm font-semibold text-[var(--ink)]">Expected output by greenhouse</p>
-                <div class="chart-frame">
-                  <canvas
-                    id="dashboard-output-chart"
-                    phx-hook="ChartRenderer"
-                    data-chart={Jason.encode!(output_chart(@greenhouse_rows))}
-                  >
-                  </canvas>
-                </div>
-              </div>
-
-              <div class="chart-shell">
-                <p class="text-sm font-semibold text-[var(--ink)]">Expected output by venture</p>
-                <div class="chart-frame">
-                  <canvas
-                    id="dashboard-venture-chart"
-                    phx-hook="ChartRenderer"
-                    data-chart={Jason.encode!(venture_output_chart(@greenhouse_rows))}
-                  >
-                  </canvas>
-                </div>
-              </div>
-
-              <div class="chart-shell">
-                <p class="text-sm font-semibold text-[var(--ink)]">
-                  Next Saturday projection vs baseline
-                </p>
-                <div class="chart-frame">
-                  <canvas
-                    id="dashboard-projection-chart"
-                    phx-hook="ChartRenderer"
-                    data-chart={Jason.encode!(projection_chart(@forecast.projection))}
-                  >
-                  </canvas>
-                </div>
-              </div>
-
-              <div class="chart-shell">
-                <p class="text-sm font-semibold text-[var(--ink)]">Unit status mix</p>
-                <div class="chart-frame">
-                  <canvas
-                    id="dashboard-status-chart"
-                    phx-hook="ChartRenderer"
-                    data-chart={Jason.encode!(status_chart(@snapshot.metrics))}
-                  >
-                  </canvas>
-                </div>
-              </div>
+              </canvas>
             </div>
           </div>
+
+          <div class="chart-shell">
+            <p class="text-sm font-semibold text-[var(--ink)]">Expected output by venture</p>
+            <div class="chart-frame">
+              <canvas
+                id="dashboard-venture-chart"
+                phx-hook="ChartRenderer"
+                data-chart={Jason.encode!(venture_output_chart(@greenhouse_rows))}
+              >
+              </canvas>
+            </div>
+          </div>
+
+          <div class="chart-shell">
+            <p class="text-sm font-semibold text-[var(--ink)]">
+              Next Saturday projection vs baseline
+            </p>
+            <div class="chart-frame">
+              <canvas
+                id="dashboard-projection-chart"
+                phx-hook="ChartRenderer"
+                data-chart={Jason.encode!(projection_chart(@forecast.projection))}
+              >
+              </canvas>
+            </div>
+          </div>
+
+          <div class="chart-shell">
+            <p class="text-sm font-semibold text-[var(--ink)]">Unit status mix</p>
+            <div class="chart-frame">
+              <canvas
+                id="dashboard-status-chart"
+                phx-hook="ChartRenderer"
+                data-chart={Jason.encode!(status_chart(@snapshot.metrics))}
+              >
+              </canvas>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
         <div :if={Scope.section_visible?(@current_user, "quick_view")} class="panel-shell">
@@ -245,7 +248,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             </button>
           </div>
 
-            <div :if={!section_collapsed?(@collapsed_sections, "quick_view")}>
+          <div :if={!section_collapsed?(@collapsed_sections, "quick_view")}>
             <form class="mt-6" phx-change="select_greenhouse">
               <label class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
                 Greenhouse
@@ -328,154 +331,151 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             >
               Pick a greenhouse to preview its timeline.
             </div>
-            </div>
-          </div>
-
-          <div :if={Scope.section_visible?(@current_user, "recommendations")} class="panel-shell">
-            <h2 class="section-heading">Immediate crop recommendations</h2>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2">
-              <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
-                <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                  Active recommendations
-                </p>
-                <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                  {length(@forecast.recommendations)}
-                </p>
-              </div>
-
-              <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
-                <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                  Nursery in 7 days
-                </p>
-                <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
-                  {due_soon_count(@forecast.recommendations, :nursery_date)}
-                </p>
-              </div>
-            </div>
-
-            <p
-              :if={latest_generated_on(@forecast.recommendations)}
-              class="mt-4 text-sm text-[var(--muted)]"
-            >
-              Latest planning refresh: {format_date(latest_generated_on(@forecast.recommendations))}
-            </p>
-
-            <.link navigate={~p"/recommendations"} class="action-link mt-6 inline-flex">
-              Open recommendations page
-            </.link>
           </div>
         </div>
 
-        <div class="grid gap-6 lg:grid-cols-2">
-          <div :if={Scope.section_visible?(@current_user, "notifications")} class="panel-shell">
-            <div class="flex items-center justify-between gap-4">
-              <h2 class="section-heading">Daily notifications</h2>
+        <div :if={Scope.section_visible?(@current_user, "recommendations")} class="panel-shell">
+          <h2 class="section-heading">Immediate crop recommendations</h2>
+
+          <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Active recommendations
+              </p>
+              <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+                {length(@forecast.recommendations)}
+              </p>
+            </div>
+
+            <div class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Nursery in 7 days
+              </p>
+              <p class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+                {due_soon_count(@forecast.recommendations, :nursery_date)}
+              </p>
+            </div>
+          </div>
+
+          <p
+            :if={latest_generated_on(@forecast.recommendations)}
+            class="mt-4 text-sm text-[var(--muted)]"
+          >
+            Latest planning refresh: {format_date(latest_generated_on(@forecast.recommendations))}
+          </p>
+
+          <.link navigate={~p"/recommendations"} class="action-link mt-6 inline-flex">
+            Open recommendations page
+          </.link>
+        </div>
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div :if={Scope.section_visible?(@current_user, "notifications")} class="panel-shell">
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="section-heading">Daily notifications</h2>
+            <button
+              type="button"
+              phx-click="toggle_section"
+              phx-value-section="notifications"
+              class="action-link"
+            >
+              {toggle_label(@collapsed_sections, "notifications")}
+            </button>
+          </div>
+
+          <div :if={!section_collapsed?(@collapsed_sections, "notifications")} class="mt-6 space-y-4">
+            <div
+              :for={notification <- @notifications}
+              class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
+                  <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
+                </div>
+                <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  {format_date(notification.notify_on)}
+                </p>
+              </div>
+            </div>
+
+            <div
+              :if={Enum.empty?(@notifications)}
+              class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+            >
+              Notifications will appear here when nursery windows open or rotations are triggered.
+            </div>
+          </div>
+        </div>
+
+        <div :if={Scope.section_visible?(@current_user, "projections")} class="panel-shell">
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="section-heading">Next Saturday outlook</h2>
+            <div class="flex items-center gap-4">
+              <.link navigate={~p"/forecast"} class="action-link">View 8-week forecast</.link>
               <button
                 type="button"
                 phx-click="toggle_section"
-                phx-value-section="notifications"
+                phx-value-section="projections"
                 class="action-link"
               >
-                {toggle_label(@collapsed_sections, "notifications")}
+                {toggle_label(@collapsed_sections, "projections")}
               </button>
-            </div>
-
-            <div :if={!section_collapsed?(@collapsed_sections, "notifications")} class="mt-6 space-y-4">
-              <div
-                :for={notification <- @notifications}
-                class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4"
-              >
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
-                    <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
-                  </div>
-                  <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    {format_date(notification.notify_on)}
-                  </p>
-                </div>
-              </div>
-
-              <div
-                :if={Enum.empty?(@notifications)}
-                class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
-              >
-                Notifications will appear here when nursery windows open or rotations are triggered.
-              </div>
             </div>
           </div>
 
-          <div :if={Scope.section_visible?(@current_user, "projections")} class="panel-shell">
-            <div class="flex items-center justify-between gap-4">
-              <h2 class="section-heading">Next Saturday outlook</h2>
-              <div class="flex items-center gap-4">
-                <.link navigate={~p"/forecast"} class="action-link">View 8-week forecast</.link>
-                <button
-                  type="button"
-                  phx-click="toggle_section"
-                  phx-value-section="projections"
-                  class="action-link"
-                >
-                  {toggle_label(@collapsed_sections, "projections")}
-                </button>
-              </div>
-            </div>
-
-            <div :if={!section_collapsed?(@collapsed_sections, "projections")} class="mt-6 space-y-4">
-              <div
-                :for={projection <- Enum.take(@forecast.projection, 4)}
-                class="rounded-[1.5rem] border border-[var(--line)] p-4"
-              >
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <p class="font-semibold text-[var(--ink)]">{projection.greenhouse_name}</p>
-                    <p class="mt-1 text-sm text-[var(--muted)]">{projection.crop_type}</p>
-                  </div>
-                  <p class="text-sm font-semibold text-[var(--brand-green-deep)]">
-                    {format_quantity(projection.projected)} projected
-                  </p>
+          <div :if={!section_collapsed?(@collapsed_sections, "projections")} class="mt-6 space-y-4">
+            <div
+              :for={projection <- Enum.take(@forecast.projection, 4)}
+              class="rounded-[1.5rem] border border-[var(--line)] p-4"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-semibold text-[var(--ink)]">{projection.greenhouse_name}</p>
+                  <p class="mt-1 text-sm text-[var(--muted)]">{projection.crop_type}</p>
                 </div>
-                <p class="mt-3 text-sm text-[var(--muted)]">
-                  Expected baseline: {format_quantity(projection.expected)} on {format_date(
-                    projection.week_ending_on
-                  )}
+                <p class="text-sm font-semibold text-[var(--brand-green-deep)]">
+                  {format_quantity(projection.projected)} projected
                 </p>
               </div>
+              <p class="mt-3 text-sm text-[var(--muted)]">
+                Expected baseline: {format_quantity(projection.expected)} on {format_date(
+                  projection.week_ending_on
+                )}
+              </p>
+            </div>
 
-              <div
-                :if={Enum.empty?(@forecast.projection)}
-                class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
-              >
-                Harvest records are needed before projections can be calculated.
-              </div>
+            <div
+              :if={Enum.empty?(@forecast.projection)}
+              class="rounded-[1.5rem] border border-dashed border-[var(--line)] p-5 text-sm text-[var(--muted)]"
+            >
+              Harvest records are needed before projections can be calculated.
             </div>
           </div>
         </div>
+      </div>
 
-        <div :if={ChasingSunWeb.UserAuth.can?(@current_user, :view_operations)} class="panel-shell">
-          <h2 class="section-heading">Recent changes</h2>
+      <div :if={ChasingSunWeb.UserAuth.can?(@current_user, :view_operations)} class="panel-shell">
+        <h2 class="section-heading">Recent changes</h2>
 
-            <div class="mt-6 space-y-4">
-              <div
-                :for={event <- @recent_events}
-                class="rounded-[1.5rem] border border-[var(--line)] p-4"
-              >
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <p class="font-semibold text-[var(--ink)]">
-                      {event.action |> String.replace("_", " ") |> String.capitalize()}
-                    </p>
-                    <p class="mt-1 text-sm text-[var(--muted)]">
-                      {event.entity_type} #{event.entity_id || "-"}
-                    </p>
-                  </div>
-                  <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    {actor_label(event)}
-                  </p>
-                </div>
-                <p class="mt-3 text-sm text-[var(--muted)]">{format_datetime(event.inserted_at)}</p>
+        <div class="mt-6 space-y-4">
+          <div :for={event <- @recent_events} class="rounded-[1.5rem] border border-[var(--line)] p-4">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="font-semibold text-[var(--ink)]">
+                  {event.action |> String.replace("_", " ") |> String.capitalize()}
+                </p>
+                <p class="mt-1 text-sm text-[var(--muted)]">
+                  {event.entity_type} #{event.entity_id || "-"}
+                </p>
               </div>
+              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                {actor_label(event)}
+              </p>
+            </div>
+            <p class="mt-3 text-sm text-[var(--muted)]">{format_datetime(event.inserted_at)}</p>
+          </div>
 
           <div
             :if={Enum.empty?(@recent_events)}
@@ -517,7 +517,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp build_row(greenhouse, rules) do
     cycle = Operations.current_cycle(greenhouse)
     expected_output = if cycle, do: Operations.CropPlanner.expected_yield(cycle, rules), else: 0.0
-    latest_harvest = List.first(greenhouse.harvest_records)
+    latest_harvest = Harvesting.latest_week_summary(greenhouse.harvest_records)
     status = cycle && cycle.status_cache
 
     %{

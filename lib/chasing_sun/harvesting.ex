@@ -36,6 +36,27 @@ defmodule ChasingSun.Harvesting do
     |> Repo.all()
   end
 
+  def latest_week_summary([]), do: nil
+
+  def latest_week_summary(records) when is_list(records) do
+    latest_week =
+      records
+      |> Enum.max_by(& &1.week_ending_on, Date)
+      |> Map.fetch!(:week_ending_on)
+
+    latest_records = Enum.filter(records, &(&1.week_ending_on == latest_week))
+
+    representative_record =
+      Enum.max_by(latest_records, & &1.updated_at, DateTime)
+
+    total_yield =
+      Enum.reduce(latest_records, 0.0, fn record, acc ->
+        acc + (record.actual_yield || 0.0)
+      end)
+
+    %{representative_record | actual_yield: total_yield}
+  end
+
   def change_harvest_record(record, attrs \\ %{}), do: HarvestRecord.changeset(record, attrs)
 
   @doc """
