@@ -64,10 +64,13 @@ defmodule ChasingSun.Operations.CropPlanner do
     end
   end
 
-  def next_crop_recommendation("Cucumber"), do: "Capsicum"
-  def next_crop_recommendation("Local Cucumber"), do: "Capsicum"
-  def next_crop_recommendation("Capsicum"), do: "Cucumber"
-  def next_crop_recommendation(_), do: "Capsicum"
+  def next_crop_recommendation(crop_type, venture_code \\ nil)
+
+  def next_crop_recommendation("Capsicum", "cs"), do: "Local Cucumber"
+  def next_crop_recommendation("Cucumber", _venture_code), do: "Capsicum"
+  def next_crop_recommendation("Local Cucumber", _venture_code), do: "Capsicum"
+  def next_crop_recommendation("Capsicum", _venture_code), do: "Cucumber"
+  def next_crop_recommendation(_crop_type, _venture_code), do: "Capsicum"
 
   def saturdays(start_date \\ Date.utc_today(), count \\ 8) do
     first = next_saturday(start_date)

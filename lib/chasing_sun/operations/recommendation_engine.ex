@@ -3,10 +3,16 @@ defmodule ChasingSun.Operations.RecommendationEngine do
 
   alias ChasingSun.Operations.{CropCycle, CropPlanner, CropRule, Greenhouse, StatusCalculator}
 
-  def build_recommendation(%Greenhouse{id: greenhouse_id}, %CropCycle{} = cycle, rules, today) do
-    next_crop = CropPlanner.next_crop_recommendation(cycle.crop_type)
+  def build_recommendation(
+        %Greenhouse{id: greenhouse_id} = greenhouse,
+        %CropCycle{} = cycle,
+        rules,
+        today
+      ) do
+    venture_code = venture_code(greenhouse)
+    next_crop = CropPlanner.next_crop_recommendation(cycle.crop_type, venture_code)
     next_rule = find_rule(rules, next_crop)
-    next_cycle_attrs = next_cycle_attrs(cycle, next_rule, rules)
+    next_cycle_attrs = next_cycle_attrs(cycle, next_rule, rules, venture_code)
     status = StatusCalculator.status_for_cycle(cycle, today)
 
     %{
@@ -26,7 +32,9 @@ defmodule ChasingSun.Operations.RecommendationEngine do
     }
   end
 
-  def next_cycle_attrs(%CropCycle{} = cycle, %CropRule{} = next_rule, rules) do
+  def next_cycle_attrs(cycle, next_rule, rules, venture_code \\ nil)
+
+  def next_cycle_attrs(%CropCycle{} = cycle, %CropRule{} = next_rule, rules, _venture_code) do
     transplant_date = cycle.soil_recovery_end_date
 
     attrs =
@@ -41,9 +49,9 @@ defmodule ChasingSun.Operations.RecommendationEngine do
     CropPlanner.normalize_cycle_attrs(attrs, rules)
   end
 
-  def next_cycle_attrs(%CropCycle{} = cycle, nil, _rules) do
+  def next_cycle_attrs(%CropCycle{} = cycle, nil, _rules, venture_code) do
     %{
-      "crop_type" => CropPlanner.next_crop_recommendation(cycle.crop_type),
+      "crop_type" => CropPlanner.next_crop_recommendation(cycle.crop_type, venture_code),
       "variety" => nil,
       "plant_count" => cycle.plant_count,
       "transplant_date" => cycle.soil_recovery_end_date
@@ -140,6 +148,12 @@ defmodule ChasingSun.Operations.RecommendationEngine do
   defp find_rule(rules, crop_type) do
     Enum.find(rules, &(&1.crop_type == crop_type and &1.active))
   end
+
+  defp venture_code(%Greenhouse{venture: %{code: code}}) when is_binary(code) do
+    String.downcase(code)
+  end
+
+  defp venture_code(_greenhouse), do: nil
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "TBD"

@@ -420,13 +420,13 @@ defmodule ChasingSun.Operations do
       list_greenhouses()
       |> Enum.map(&sync_greenhouse(&1, rules, today))
 
-    enforce_continuous_harvesting_rule(today)
+    enforce_continuous_harvesting_rule(rules, today)
 
     broadcast_refresh(today)
     result
   end
 
-  defp enforce_continuous_harvesting_rule(today) do
+  defp enforce_continuous_harvesting_rule(rules, today) do
     cs_16x40_greenhouses =
       list_greenhouses(%{venture_code: "cs"})
       |> Enum.filter(&(&1.size == "16x40" and &1.active == true))
@@ -436,47 +436,37 @@ defmodule ChasingSun.Operations do
       |> Enum.map(fn gh -> {gh, current_cycle(gh)} end)
       |> Enum.reject(fn {_gh, cycle} -> is_nil(cycle) end)
 
-    latest =
-      active_cycles
-      |> Enum.filter(fn {_gh, cycle} -> not is_nil(cycle.harvest_end_date) end)
-      |> Enum.sort_by(fn {_gh, cycle} -> cycle.harvest_end_date end, {:desc, Date})
-      |> List.first()
+    case ExpansionEngine.continuous_harvest_risk(active_cycles, rules, today) do
+      %{greenhouse: greenhouse, cycle: cycle, replacement_required_by: %Date{} = required_by} =
+          risk ->
+        insert_notification(%{
+          greenhouse_id: greenhouse.id,
+          crop_cycle_id: cycle.id,
+          kind: "continuous_harvest_risk",
+          message:
+            "The Chasing Sun Local Cucumber 16x40 harvest pipeline ends on #{Calendar.strftime(required_by, "%d %b %Y")} at #{greenhouse.name}, and no replacement Local Cucumber unit is scheduled to begin harvesting by then. Start the next Local Cucumber construction or commit a Chasing Sun capsicum rotation now; the current crop rules require about #{risk.lead_days} days before a new Local Cucumber unit reaches first harvest.",
+          notify_on: today,
+          sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          metadata: %{
+            "lead_days" => risk.lead_days,
+            "replacement_required_by" => Date.to_iso8601(required_by)
+          }
+        })
 
-    case latest do
-      {latest_gh, latest_cycle} ->
-        cutoff_date = Date.add(today, ChasingSun.Operations.ExpansionEngine.near_harvest_lookahead_days())
-
-        if Date.compare(latest_cycle.harvest_end_date, cutoff_date) != :gt do
-          insert_notification(%{
-            greenhouse_id: latest_gh.id,
-            crop_cycle_id: latest_cycle.id,
-            kind: "continuous_harvest_risk",
-            message:
-              "The 16x40 unit #{latest_gh.name} under Chasing Sun is ending its harvest on #{Calendar.strftime(latest_cycle.harvest_end_date, "%d %b %Y")}. Suggest new construction or crop rotation for capsicums within the Chasing Sun venture to maintain continuous output.",
-            notify_on: today,
-            sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
-            metadata: %{}
-          })
-        end
+      %{greenhouse: greenhouse, cycle: cycle} ->
+        insert_notification(%{
+          greenhouse_id: greenhouse.id,
+          crop_cycle_id: cycle.id,
+          kind: "continuous_harvest_risk",
+          message:
+            "There is no active Local Cucumber 16x40 harvesting pipeline under the Chasing Sun venture. Start construction or commit a Chasing Sun capsicum rotation to Local Cucumber to maintain 500 kg+ year-round output.",
+          notify_on: today,
+          sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          metadata: %{}
+        })
 
       nil ->
-        # If no active cycles have harvest end dates, we try to use the first active cycle
-        # or just fallback silently because we need a crop_cycle_id for the notification
-        case List.first(active_cycles) do
-          {gh, cycle} ->
-            insert_notification(%{
-              greenhouse_id: gh.id,
-              crop_cycle_id: cycle.id,
-              kind: "continuous_harvest_risk",
-              message:
-                "There is no active 16x40 harvesting pipeline under the Chasing Sun venture. Suggest new construction or crop rotation for capsicums within the Chasing Sun venture to maintain continuous output.",
-              notify_on: today,
-              sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
-              metadata: %{}
-            })
-          nil ->
-            :ok
-        end
+        :ok
     end
   end
 

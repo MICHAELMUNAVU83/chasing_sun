@@ -11,10 +11,12 @@ defmodule ChasingSun.Operations.ExpansionEngine do
   from Kenyan counties that are not already in use.
   """
 
-  alias ChasingSun.Operations.CropPlanner
+  alias ChasingSun.Operations.{CropCycle, CropPlanner, CropRule, Greenhouse}
+
+  @continuous_harvest_crop "Local Cucumber"
 
   # Weekly weight (kg) each crop must stay at or above, farm-wide.
-  @thresholds %{"Capsicum" => 500.0, "Cucumber" => 1000.0}
+  @thresholds %{"Capsicum" => 500.0, "Cucumber" => 1000.0, "Local Cucumber" => 500.0}
 
   # A recommended new unit is assumed to be a 16x40 / 2000-plant greenhouse.
   @new_unit_size "16x40"
@@ -39,6 +41,67 @@ defmodule ChasingSun.Operations.ExpansionEngine do
   def new_unit_plant_count, do: @new_unit_plant_count
 
   def near_harvest_lookahead_days, do: @near_harvest_lookahead_days
+
+  def construction_days, do: @construction_days
+
+  @doc """
+  The alert lead time needed to bring a replacement 16x40 unit into harvest.
+
+  This is intentionally based on crop rules instead of the short near-harvest
+  forecast horizon. For continuity planning, the prompt must fire before there
+  is no longer enough time to build, raise seedlings where needed, and reach the
+  next first harvest.
+  """
+  def continuous_harvest_crop, do: @continuous_harvest_crop
+
+  def continuous_harvest_lead_days(rules, crop_type \\ nil) do
+    rules
+    |> Enum.filter(&continuous_harvest_crop?(&1, crop_type))
+    |> Enum.map(fn rule ->
+      @construction_days + non_negative(rule.nursery_days) + non_negative(rule.days_to_harvest)
+    end)
+    |> Enum.max(fn -> @construction_days end)
+  end
+
+  @doc """
+  Returns the latest Chasing Sun 16x40 cycle at risk, or nil when the pipeline
+  already has a replacement whose harvest begins before the current pipeline
+  closes.
+  """
+  def continuous_harvest_risk(
+        active_cycles,
+        rules,
+        today,
+        crop_type \\ @continuous_harvest_crop
+      ) do
+    lead_days = continuous_harvest_lead_days(rules, crop_type)
+
+    active_cycles
+    |> latest_harvest_cycle(crop_type)
+    |> case do
+      nil ->
+        first_active_cycle(active_cycles)
+
+      {latest_greenhouse, latest_cycle} = latest ->
+        cutoff_date = Date.add(today, lead_days)
+
+        cond do
+          Date.compare(latest_cycle.harvest_end_date, cutoff_date) == :gt ->
+            nil
+
+          replacement_harvest_ready?(active_cycles, latest, today, crop_type) ->
+            nil
+
+          true ->
+            %{
+              greenhouse: latest_greenhouse,
+              cycle: latest_cycle,
+              lead_days: lead_days,
+              replacement_required_by: latest_cycle.harvest_end_date
+            }
+        end
+    end
+  end
 
   @doc """
   Builds expansion recommendations for every crop that has fallen below its
@@ -197,6 +260,68 @@ defmodule ChasingSun.Operations.ExpansionEngine do
       _ -> nil
     end
   end
+
+  defp latest_harvest_cycle(active_cycles, crop_type) do
+    active_cycles
+    |> Enum.filter(fn {_greenhouse, cycle} ->
+      cycle.crop_type == crop_type and match?(%Date{}, cycle.harvest_end_date)
+    end)
+    |> Enum.sort_by(fn {_greenhouse, cycle} -> cycle.harvest_end_date end, {:desc, Date})
+    |> List.first()
+  end
+
+  defp first_active_cycle(active_cycles) do
+    case List.first(active_cycles) do
+      {%Greenhouse{} = greenhouse, %CropCycle{} = cycle} ->
+        %{
+          greenhouse: greenhouse,
+          cycle: cycle,
+          lead_days: nil,
+          replacement_required_by: nil
+        }
+
+      _ ->
+        nil
+    end
+  end
+
+  defp replacement_harvest_ready?(
+         active_cycles,
+         {_latest_greenhouse,
+          %CropCycle{id: latest_cycle_id, harvest_end_date: harvest_end_date}},
+         today,
+         crop_type
+       ) do
+    Enum.any?(active_cycles, fn {_greenhouse, cycle} ->
+      cycle.id != latest_cycle_id and
+        cycle.crop_type == crop_type and
+        future_harvest_start_by?(cycle, today, harvest_end_date)
+    end)
+  end
+
+  defp future_harvest_start_by?(
+         %CropCycle{harvest_start_date: %Date{} = harvest_start_date},
+         today,
+         %Date{} = required_by
+       ) do
+    Date.compare(harvest_start_date, today) == :gt and
+      Date.compare(harvest_start_date, required_by) != :gt
+  end
+
+  defp future_harvest_start_by?(_cycle, _today, _required_by), do: false
+
+  defp continuous_harvest_crop?(%CropRule{crop_type: rule_crop_type, active: active}, nil) do
+    active != false and Map.has_key?(@thresholds, rule_crop_type)
+  end
+
+  defp continuous_harvest_crop?(%CropRule{crop_type: rule_crop_type, active: active}, crop_type) do
+    active != false and rule_crop_type == crop_type
+  end
+
+  defp continuous_harvest_crop?(_rule, _crop_type), do: false
+
+  defp non_negative(value) when is_integer(value) and value > 0, do: value
+  defp non_negative(_value), do: 0
 
   defp average_weekly(weeks) do
     total = Enum.reduce(weeks, 0.0, fn {_week, weight}, acc -> acc + (weight || 0.0) end)
