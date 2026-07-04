@@ -38,7 +38,15 @@ defmodule ChasingSun.Analytics.PerformanceExport do
   end
 
   defp greenhouse_rows(report) do
-    header = ["Week ending", "Crop", "Kg produced", "Expected kg", "Variance", "Revenue", "Crop age weeks"]
+    header = [
+      "Week ending",
+      "Crop",
+      "Kg produced",
+      "Expected kg",
+      "Variance",
+      "Revenue",
+      "Crop age weeks"
+    ]
 
     rows =
       Enum.map(report.greenhouse_report.entries, fn entry ->

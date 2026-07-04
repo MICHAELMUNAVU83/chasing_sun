@@ -87,7 +87,9 @@ defmodule ChasingSun.Analytics.PerformanceReport do
     price_per_kg = record.price_per_kg || CropPlanner.price_for(crop_type, rules)
     revenue = record.actual_yield * price_per_kg
     variance = record.actual_yield - expected
-    crop_age_weeks = crop_age_weeks(record.week_ending_on, crop_cycle && crop_cycle.harvest_start_date)
+
+    crop_age_weeks =
+      crop_age_weeks(record.week_ending_on, crop_cycle && crop_cycle.harvest_start_date)
 
     %{
       id: record.id,
@@ -150,7 +152,8 @@ defmodule ChasingSun.Analytics.PerformanceReport do
           |> Enum.map(& &1.greenhouse_id)
           |> MapSet.new()
 
-        Enum.find(greenhouses, &MapSet.member?(greenhouse_ids_with_rows, &1.id)) || List.first(greenhouses)
+        Enum.find(greenhouses, &MapSet.member?(greenhouse_ids_with_rows, &1.id)) ||
+          List.first(greenhouses)
 
       true ->
         nil
@@ -206,7 +209,9 @@ defmodule ChasingSun.Analytics.PerformanceReport do
 
     valid_dates = Enum.map(week_options, & &1.date)
 
-    if requested in valid_dates, do: requested, else: week_options |> List.first() |> Map.fetch!(:date)
+    if requested in valid_dates,
+      do: requested,
+      else: week_options |> List.first() |> Map.fetch!(:date)
   end
 
   defp season_options(_rows, nil), do: []
@@ -251,7 +256,8 @@ defmodule ChasingSun.Analytics.PerformanceReport do
               %{
                 value: Integer.to_string(cycle.id),
                 crop_cycle_id: cycle.id,
-                label: season_label(cycle.crop_type, cycle.harvest_start_date, cycle.harvest_end_date),
+                label:
+                  season_label(cycle.crop_type, cycle.harvest_start_date, cycle.harvest_end_date),
                 start_date: cycle.harvest_start_date,
                 end_date: cycle.harvest_end_date
               }
@@ -260,7 +266,11 @@ defmodule ChasingSun.Analytics.PerformanceReport do
           end
       end
 
-    Enum.sort_by(options, &{&1.end_date || ~D[1900-01-01], &1.start_date || ~D[1900-01-01]}, :desc)
+    Enum.sort_by(
+      options,
+      &{&1.end_date || ~D[1900-01-01], &1.start_date || ~D[1900-01-01]},
+      :desc
+    )
   end
 
   defp selected_season(_filters, []), do: nil
@@ -269,7 +279,9 @@ defmodule ChasingSun.Analytics.PerformanceReport do
     requested = get_value(filters, [:season_id, "season_id"])
     valid_values = Enum.map(season_options, & &1.value)
 
-    if requested in valid_values, do: requested, else: season_options |> List.first() |> Map.fetch!(:value)
+    if requested in valid_values,
+      do: requested,
+      else: season_options |> List.first() |> Map.fetch!(:value)
   end
 
   defp selected_season_window(nil, _season_options), do: {nil, nil}
@@ -282,7 +294,9 @@ defmodule ChasingSun.Analytics.PerformanceReport do
   end
 
   defp rows_for_greenhouse(rows, nil), do: rows
-  defp rows_for_greenhouse(rows, greenhouse), do: Enum.filter(rows, &(&1.greenhouse_id == greenhouse.id))
+
+  defp rows_for_greenhouse(rows, greenhouse),
+    do: Enum.filter(rows, &(&1.greenhouse_id == greenhouse.id))
 
   defp rows_for_mode(rows, "week", %Date{} = selected_week, _selected_month, _selected_season_id) do
     Enum.filter(rows, &(&1.week_ending_on == selected_week))
@@ -319,8 +333,8 @@ defmodule ChasingSun.Analytics.PerformanceReport do
       plant_count: plant_count(greenhouse, latest_row),
       variety: latest_row && latest_row.variety,
       period_label: period_label,
-      season_start: season_start || latest_row && latest_row.harvest_start_date,
-      season_end: season_end || latest_row && latest_row.harvest_end_date,
+      season_start: season_start || (latest_row && latest_row.harvest_start_date),
+      season_end: season_end || (latest_row && latest_row.harvest_end_date),
       actual_yield: actual_yield,
       expected_yield: expected_yield,
       revenue: revenue,
@@ -373,7 +387,15 @@ defmodule ChasingSun.Analytics.PerformanceReport do
     ["No greenhouse has been selected yet for benchmarking."]
   end
 
-  defp insights(greenhouse_report, rows, mode, selected_week, selected_month, selected_season_id, estate_rollup) do
+  defp insights(
+         greenhouse_report,
+         rows,
+         mode,
+         selected_week,
+         selected_month,
+         selected_season_id,
+         estate_rollup
+       ) do
     peer_reports =
       rows
       |> peer_rows(mode, selected_week, selected_month, selected_season_id)
@@ -417,9 +439,11 @@ defmodule ChasingSun.Analytics.PerformanceReport do
   defp peer_rows(rows, "season", _selected_week, _selected_month, _selected_season_id), do: rows
   defp peer_rows(rows, _mode, _selected_week, _selected_month, _selected_season_id), do: rows
 
-  defp peer_group_key(row), do: {row.greenhouse_id, row.crop_cycle_id || row.month_key || row.week_ending_on}
+  defp peer_group_key(row),
+    do: {row.greenhouse_id, row.crop_cycle_id || row.month_key || row.week_ending_on}
 
-  defp peer_performance_note(_greenhouse_report, [], _mode), do: "No fair peer group yet for this crop and unit size."
+  defp peer_performance_note(_greenhouse_report, [], _mode),
+    do: "No fair peer group yet for this crop and unit size."
 
   defp peer_performance_note(greenhouse_report, comparable_peers, mode) do
     peer_average =
@@ -547,11 +571,23 @@ defmodule ChasingSun.Analytics.PerformanceReport do
     max(Date.diff(week_ending_on, harvest_start_date), 0) / 7
   end
 
-  defp period_label("week", %Date{} = selected_week, _selected_month, _selected_season_id, _season_options),
-    do: format_date(selected_week)
+  defp period_label(
+         "week",
+         %Date{} = selected_week,
+         _selected_month,
+         _selected_season_id,
+         _season_options
+       ),
+       do: format_date(selected_week)
 
-  defp period_label("month", _selected_week, selected_month, _selected_season_id, _season_options),
-    do: month_label(selected_month)
+  defp period_label(
+         "month",
+         _selected_week,
+         selected_month,
+         _selected_season_id,
+         _season_options
+       ),
+       do: month_label(selected_month)
 
   defp period_label("season", _selected_week, _selected_month, selected_season_id, season_options) do
     case Enum.find(season_options, &(&1.value == selected_season_id)) do

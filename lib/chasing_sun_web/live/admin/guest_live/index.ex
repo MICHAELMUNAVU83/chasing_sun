@@ -234,9 +234,7 @@ defmodule ChasingSunWeb.Admin.GuestLive.Index do
               type="password"
               label="Password"
               required={is_nil(@current_guest)}
-              placeholder={
-                if @current_guest, do: "Leave blank to keep current password", else: nil
-              }
+              placeholder={if @current_guest, do: "Leave blank to keep current password", else: nil}
             />
 
             <.toggle_group

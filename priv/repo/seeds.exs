@@ -1,6 +1,10 @@
 alias ChasingSun.Accounts
 alias ChasingSun.Harvesting
 alias ChasingSun.Operations
+alias ChasingSun.Repo
+alias ChasingSun.Harvesting.HarvestRecord
+
+import Ecto.Query
 
 Operations.ensure_venture_seeded()
 
@@ -287,6 +291,14 @@ greenhouses_by_name =
 Enum.each(seed_harvest_records, fn attrs ->
   greenhouse = Map.fetch!(greenhouses_by_name, attrs.greenhouse_name)
 
+  Repo.delete_all(
+    from record in HarvestRecord,
+      where:
+        record.greenhouse_id == ^greenhouse.id and
+          record.week_ending_on == ^Date.from_iso8601!(attrs.week_ending_on) and
+          record.notes == "Seeded legacy harvest"
+  )
+
   {:ok, _record} =
     Harvesting.upsert_harvest_record(
       %{
@@ -300,6 +312,21 @@ Enum.each(seed_harvest_records, fn attrs ->
 end)
 
 Operations.refresh_daily_operations()
+
+IO.puts("""
+
+Seed complete.
+
+Seeded logins:
+- admin@gmail.com / 123456 (admin)
+- guest@gmail.com / 123456 (restricted guest)
+
+Seeded data:
+- #{length(rules)} crop rules
+- #{map_size(ventures)} ventures
+- #{length(seed_greenhouses)} greenhouses with active crop cycles
+- #{length(seed_harvest_records)} harvest records
+""")
 
 # Script for populating the database. You can run it as:
 #

@@ -61,14 +61,8 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
         </div>
 
         <div class="mt-8 grid gap-4 md:grid-cols-3">
-          <.summary_card
-            title="Kg produced"
-            value={format_quantity(@report.summary.total_actual)}
-          />
-          <.summary_card
-            title="Revenue earned"
-            value={format_kes(@report.summary.total_revenue)}
-          />
+          <.summary_card title="Kg produced" value={format_quantity(@report.summary.total_actual)} />
+          <.summary_card title="Revenue earned" value={format_kes(@report.summary.total_revenue)} />
           <.summary_card
             title="Variance to target"
             value={format_signed(@report.summary.total_variance)}
@@ -80,7 +74,8 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <h2 class="section-heading">Report filters</h2>
           <p class="text-sm text-[var(--muted)]">
-            Showing <span class="font-semibold text-[var(--ink)]">{@report.filters.period_label}</span>
+            Showing
+            <span class="font-semibold text-[var(--ink)]">{@report.filters.period_label}</span>
           </p>
         </div>
 
@@ -259,7 +254,9 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
               </p>
             </div>
             <div class="rounded-xl border border-zinc-200 bg-white p-4">
-              <p class="text-xs font-medium uppercase tracking-wide text-zinc-400">Average per week</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                Average per week
+              </p>
               <p class="mt-2 text-2xl font-semibold text-zinc-900">
                 {format_quantity(@report.greenhouse_report.average_per_week)}
               </p>
@@ -326,7 +323,9 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
                   <td>{format_quantity(entry.expected_yield)}</td>
                   <td>
                     <p class={variance_class(entry.variance)}>{format_signed(entry.variance)}</p>
-                    <p class="mt-1 text-xs text-[var(--muted)]">{format_percent(entry.variance_pct)}</p>
+                    <p class="mt-1 text-xs text-[var(--muted)]">
+                      {format_percent(entry.variance_pct)}
+                    </p>
                   </td>
                   <td>{format_kes(entry.revenue)}</td>
                   <td>{format_weeks(entry.crop_age_weeks)}</td>
@@ -460,8 +459,11 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
     if selected_mode == mode, do: "filter-tab filter-tab-active", else: "filter-tab"
   end
 
-  defp selected_option?(option_value, selected_value), do: stringify(option_value) == stringify(selected_value)
-  defp selected_date_option?(option_value, selected_value), do: date_input_value(option_value) == date_input_value(selected_value)
+  defp selected_option?(option_value, selected_value),
+    do: stringify(option_value) == stringify(selected_value)
+
+  defp selected_date_option?(option_value, selected_value),
+    do: date_input_value(option_value) == date_input_value(selected_value)
 
   defp stringify(nil), do: ""
   defp stringify(value), do: to_string(value)

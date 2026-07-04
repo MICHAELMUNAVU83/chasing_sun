@@ -1,69 +1,42 @@
 # ChasingSun
 
-ChasingSun is an internal greenhouse operations platform built with Phoenix LiveView. It helps teams manage greenhouse crop cycles, record weekly harvests, review performance, and project the next 8 weeks of output from one system.
+ChasingSun is an internal Phoenix LiveView platform for greenhouse operations. It helps farm teams manage ventures, greenhouse crop cycles, harvest capture, farm visits, crop recommendations, forecasts, and performance reporting.
 
-## What the app does
+Major areas:
 
-- Tracks greenhouses, ventures, and active crop cycles
-- Records weekly harvest actuals by greenhouse
-- Compares expected yield vs actual yield and estimates revenue
-- Projects short-range output and next-Saturday expectations
-- Generates crop recommendations and daily operational notifications
-- Supports role-based access for admins, operators, viewers, and restricted guests
-- Includes AI-assisted pickup-note analysis for harvest entry
+- Public home page and Phoenix-generated account flows
+- Authenticated dashboard for operational overview
+- Operations portal for greenhouses, harvests, farm visits, recommendations, forecasts, and performance exports
+- Admin portal for ventures, crop rules, guest accounts, and the operating guide
 
-## Stack
+## Prerequisites
 
 - Elixir `~> 1.14`
-- Phoenix `~> 1.7`
-- Phoenix LiveView
-- PostgreSQL + Ecto
-- Oban for background jobs
-- Tailwind CSS
-- Esbuild
-- Chart.js
-
-## Quick start
-
-### 1. Prerequisites
-
-- Elixir and Erlang installed locally
+- Erlang/OTP compatible with the installed Elixir version
 - PostgreSQL running locally
-- Node.js and npm for frontend dependencies such as `chart.js`
+- Node.js/npm for `assets/package.json` dependencies
 
-### 2. Database defaults
+No `.tool-versions`, Dockerfile, or `docker-compose.yml` is currently committed.
 
-Development uses the following defaults from [config/dev.exs](/Users/michaelmunavu/Documents/projects/chasing_sun/config/dev.exs:1):
+## Setup
 
+Development database defaults from `config/dev.exs`:
+
+- Host: `localhost`
 - Database: `chasing_sun_dev`
 - Username: `postgres`
 - Password: `postgres`
-- Host: `localhost`
 
-Test uses `chasing_sun_test` with the same local Postgres credentials.
-
-### 3. Install and bootstrap
-
-Install frontend packages:
+Install JavaScript dependencies, then bootstrap the app:
 
 ```bash
 npm install --prefix assets
-```
-
-Then bootstrap the Phoenix app:
-
-```bash
 mix setup
 ```
 
-`mix setup` runs:
+`mix setup` runs dependency install, database create/migrate/seed, asset setup, and an initial asset build.
 
-- `mix deps.get`
-- `mix ecto.setup`
-- asset installation
-- initial asset build
-
-### 4. Start the app
+## Run
 
 ```bash
 mix phx.server
@@ -71,96 +44,35 @@ mix phx.server
 
 Open `http://localhost:4890`.
 
-## Seeded accounts
+## Seeded Logins
 
-The seed script creates these accounts by default:
+| Role | Email | Password | Notes |
+| --- | --- | --- | --- |
+| Admin | `admin@gmail.com` | `123456` | Full management access |
+| Guest | `guest@gmail.com` | `123456` | Read-only guest, configurable by admins |
 
-- Admin: `admin@gmail.com` / `123456`
-- Guest: `guest@gmail.com` / `123456`
-
-The admin account can manage ventures, crop rules, guest permissions, greenhouse records, and harvest data. The guest account is read-only and can be limited to specific pages, dashboard sections, and ventures.
-
-## Main screens
-
-- `/dashboard` for live operational overview, status board, charts, and notifications
-- `/greenhouses` for greenhouse registry and active crop-cycle management
-- `/harvest-records` for weekly harvest capture and pickup-note assisted entry
-- `/performance` for expected vs actual yield and revenue review
-- `/forecast` for the next 8 weeks of projected output
-- `/recommendations` for crop planning recommendations
-- `/farm-visits` for farm visit tracking
-- `/admin/ventures` for venture management
-- `/admin/crop-rules` for crop planning defaults and pricing
-- `/admin/guests` for restricted guest accounts
-- `/admin/guide` for the in-app operating guide
-
-## AI-assisted pickup-note analysis
-
-Harvest entry supports uploading a pickup-note image and extracting harvest details with OpenAI.
-
-Optional environment variables:
-
-- `OPENAI_API_KEY`
-- `CHASING_SUN_OPENAI_MODEL` default: `gpt-4o-mini`
-
-These are read in [config/runtime.exs](/Users/michaelmunavu/Documents/projects/chasing_sun/config/runtime.exs:1).
-
-## Useful commands
+## Common Commands
 
 ```bash
-mix phx.server
+mix setup
 mix ecto.setup
 mix ecto.reset
+mix run priv/repo/seeds.exs
 mix test
+mix format
+mix credo
 mix assets.build
 mix assets.deploy
-iex -S mix phx.server
 ```
 
-## Project structure
+`mix ecto.reset` is destructive because it drops the local database before recreating, migrating, and seeding it. Use it only when resetting local data is intended.
 
-```text
-lib/chasing_sun/
-  accounts/        Authentication, roles, and guest restrictions
-  analytics/       Forecasting and performance calculations
-  harvesting/      Weekly harvest records
-  operations/      Greenhouses, ventures, crop cycles, rules, recommendations
-  workers/         Oban jobs, including legacy import work
+## Documentation
 
-lib/chasing_sun_web/
-  live/            LiveView screens
-  components/      Shared UI building blocks
-  controllers/     Auth and landing-page flows
-```
-
-## Background jobs and imports
-
-- Oban is configured with `default` and `imports` queues
-- Legacy JSON import support exists through `ChasingSun.Importing`
-- Recommendation refreshes and operational updates are handled inside the app layer
-
-## Production configuration
-
-At minimum, production expects:
-
-- `DATABASE_URL`
-- `SECRET_KEY_BASE`
-- `PHX_HOST`
-- `PORT`
-- `PHX_SERVER=true`
-
-Optional production settings:
-
-- `POOL_SIZE`
-- `ECTO_IPV6`
-- `DNS_CLUSTER_QUERY`
-- `OPENAI_API_KEY`
-- `CHASING_SUN_OPENAI_MODEL`
-
-See [config/runtime.exs](/Users/michaelmunavu/Documents/projects/chasing_sun/config/runtime.exs:1) for the exact runtime configuration.
-
-## Notes for contributors
-
-- The repo currently has app code but no committed `test/` directory yet, so `mix test` is wired in but coverage still needs to be built out.
-- There are active product notes in [system_docs.md](/Users/michaelmunavu/Documents/projects/chasing_sun/system_docs.md:1) and [redesign.md](/Users/michaelmunavu/Documents/projects/chasing_sun/redesign.md:1).
-- If analytics look wrong, check crop rules, greenhouse cycle dates, and harvest records first. Most downstream screens depend on those inputs.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Domains](docs/DOMAINS.md)
+- [Portals](docs/PORTALS.md)
+- [Authentication and authorization](docs/AUTH.md)
+- [Data model](docs/DATA_MODEL.md)
+- [Workflows](docs/WORKFLOWS.md)
+- [Environment](docs/ENVIRONMENT.md)
