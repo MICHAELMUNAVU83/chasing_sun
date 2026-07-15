@@ -35,3 +35,6 @@ chasing_sun-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Locally uploaded documents (dev/test only — production uses object storage).
+/priv/uploads/
+

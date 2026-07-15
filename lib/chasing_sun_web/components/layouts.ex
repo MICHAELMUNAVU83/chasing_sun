@@ -15,7 +15,7 @@ defmodule ChasingSunWeb.Layouts do
   embed_templates "layouts/*"
 
   attr :navigate, :string, required: true
-  attr :subtitle, :string, default: "Greenhouse Operations"
+  attr :subtitle, :any, default: "Greenhouse Operations"
   attr :title, :string, default: "ChasingSun"
   attr :image_class, :string, default: "h-12 w-12"
 
@@ -43,20 +43,33 @@ defmodule ChasingSunWeb.Layouts do
     """
   end
 
-  def sidebar_link_class(page_title, link_title) do
+  def sidebar_link_class(page_title, item) when is_map(item) do
     [
       "sidebar-link",
-      if(page_title == link_title, do: "sidebar-link-active")
+      if(sidebar_link_active?(page_title, item), do: "sidebar-link-active")
     ]
   end
 
-  alias ChasingSun.Accounts.Scope
+  def sidebar_link_class(page_title, link_title) do
+    sidebar_link_class(page_title, %{title: link_title})
+  end
+
+  defp sidebar_link_active?(page_title, item) do
+    page_title == item.title or page_title in Map.get(item, :active_titles, []) or
+      active_title_prefix?(page_title, Map.get(item, :active_title_prefixes, []))
+  end
+
+  defp active_title_prefix?(page_title, prefixes) when is_binary(page_title) do
+    Enum.any?(prefixes, &String.starts_with?(page_title, &1))
+  end
+
+  defp active_title_prefix?(_, _), do: false
 
   def app_navigation(current_user \\ nil) do
     dashboard = %{title: "Dashboard", path: ~p"/dashboard"}
 
-    cond do
-      ChasingSunWeb.UserAuth.can?(current_user, :view_operations) ->
+    base =
+      if ChasingSunWeb.UserAuth.can?(current_user, :view_operations) do
         [
           dashboard,
           %{title: "Recommendations", path: ~p"/recommendations"},
@@ -66,23 +79,33 @@ defmodule ChasingSunWeb.Layouts do
           %{title: "Performance", path: ~p"/performance"},
           %{title: "Forecast", path: ~p"/forecast"}
         ]
-
-      Scope.guest?(current_user) ->
-        [dashboard | guest_extra_navigation(current_user)]
-
-      true ->
+      else
         [dashboard]
-    end
+      end
+
+    base ++ finance_and_document_navigation(current_user)
   end
 
-  defp guest_extra_navigation(current_user) do
-    Enum.filter(
-      [
-        %{title: "Recommendations", path: ~p"/recommendations", key: "recommendations"},
-        %{title: "Forecast", path: ~p"/forecast", key: "forecast"}
-      ],
-      &Scope.page_allowed?(current_user, &1.key)
-    )
+  defp finance_and_document_navigation(current_user) do
+    [
+      %{
+        title: "Finance",
+        path: ~p"/finance",
+        key: :view_finance_dashboard,
+        active_titles: [
+          "Transactions",
+          "Edit transaction",
+          "Invoices",
+          "New invoice",
+          "Delivery notes",
+          "Clients"
+        ],
+        active_title_prefixes: ["Invoice "]
+      },
+      %{title: "Documents", path: ~p"/documents", key: :view_documents}
+    ]
+    |> Enum.filter(&ChasingSunWeb.UserAuth.can?(current_user, &1.key))
+    |> Enum.map(&Map.delete(&1, :key))
   end
 
   def admin_navigation do

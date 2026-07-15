@@ -9,7 +9,7 @@ Authentication is Phoenix-generated email/password auth in `ChasingSun.Accounts`
 - `email`
 - `hashed_password`
 - `confirmed_at`
-- `role`: `:admin`, `:operator`, `:viewer`, or `:guest`
+- `role`: `:admin`, `:operator`, `:viewer`, `:guest`, `:accountant`, or `:executive`
 - Guest restrictions: `allowed_pages`, `allowed_sections`, `allowed_venture_codes`
 
 Passwords are hashed with `bcrypt_elixir`.
@@ -33,6 +33,8 @@ Permissions are defined in `ChasingSun.Accounts.Scope`.
 | `:operator` | Dashboard, operations, greenhouse management, harvest management, farm visits |
 | `:viewer` | Dashboard and operations read access |
 | `:guest` | Dashboard only, plus optional grantable read-only pages |
+| `:accountant` | Finance dashboard, full CRUD on transactions/invoices/delivery notes |
+| `:executive` | Read-only finance dashboard + drill-down, documents (bypasses `department_only` visibility) |
 
 Grantable guest pages are `forecast` and `recommendations`. Guest dashboard sections and venture visibility are stored per user.
 
@@ -45,6 +47,9 @@ Live sessions:
 - `:authenticated`: `on_mount {UserAuth, :ensure_authenticated}` for `/dashboard`.
 - `:operations`: `on_mount {UserAuth, :ensure_operations_access}` for operations routes.
 - `:admin`: `on_mount {UserAuth, :ensure_admin}` for admin routes.
+- `:finance`: `on_mount {UserAuth, :ensure_finance_access}` for read-only finance routes (requires `:view_finance_dashboard`).
+- `:finance_management`: `on_mount {UserAuth, :ensure_finance_management}` for finance edit/create routes (requires `:manage_finance`; redirects executives back to `/finance`).
+- `:documents`: `on_mount {UserAuth, :ensure_document_access}` for `/documents` (requires `:view_documents`).
 
 Controller scopes use:
 

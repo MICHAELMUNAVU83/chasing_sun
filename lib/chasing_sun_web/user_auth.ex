@@ -207,6 +207,87 @@ defmodule ChasingSunWeb.UserAuth do
     end
   end
 
+  def on_mount(:ensure_finance_access, _params, session, socket) do
+    socket = mount_current_user(socket, session)
+    user = socket.assigns.current_user
+
+    cond do
+      is_nil(user) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+
+        {:halt, socket}
+
+      Scope.can?(user, :view_finance_dashboard) ->
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "Your account does not have access to Finance.")
+          |> Phoenix.LiveView.redirect(to: ~p"/dashboard")
+
+        {:halt, socket}
+    end
+  end
+
+  def on_mount(:ensure_finance_management, _params, session, socket) do
+    socket = mount_current_user(socket, session)
+    user = socket.assigns.current_user
+
+    cond do
+      is_nil(user) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+
+        {:halt, socket}
+
+      Scope.can?(user, :manage_finance) ->
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Only accountants and admins can edit finance records."
+          )
+          |> Phoenix.LiveView.redirect(to: ~p"/finance")
+
+        {:halt, socket}
+    end
+  end
+
+  def on_mount(:ensure_document_access, _params, session, socket) do
+    socket = mount_current_user(socket, session)
+    user = socket.assigns.current_user
+
+    cond do
+      is_nil(user) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+
+        {:halt, socket}
+
+      Scope.can?(user, :view_documents) ->
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "Your account does not have access to Documents.")
+          |> Phoenix.LiveView.redirect(to: ~p"/dashboard")
+
+        {:halt, socket}
+    end
+  end
+
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = mount_current_user(socket, session)
 

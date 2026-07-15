@@ -8,8 +8,13 @@
           <a
             :for={item <- app_navigation(@current_user)}
             href={item.path}
-            class={sidebar_link_class(assigns[:page_title], item.title)}
-            aria-current={if(assigns[:page_title] == item.title, do: "page", else: nil)}
+            class={sidebar_link_class(assigns[:page_title], item)}
+            aria-current={
+              if("sidebar-link-active" in sidebar_link_class(assigns[:page_title], item),
+                do: "page",
+                else: nil
+              )
+            }
           >
             {sidebar_link_label(item)}
           </a>
@@ -17,8 +22,13 @@
             :for={item <- admin_navigation()}
             :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_crop_rules)}
             href={item.path}
-            class={sidebar_link_class(assigns[:page_title], item.title)}
-            aria-current={if(assigns[:page_title] == item.title, do: "page", else: nil)}
+            class={sidebar_link_class(assigns[:page_title], item)}
+            aria-current={
+              if("sidebar-link-active" in sidebar_link_class(assigns[:page_title], item),
+                do: "page",
+                else: nil
+              )
+            }
           >
             {sidebar_link_label(item)}
           </a>

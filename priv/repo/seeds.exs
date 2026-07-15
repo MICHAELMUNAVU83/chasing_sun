@@ -1,8 +1,10 @@
 alias ChasingSun.Accounts
+alias ChasingSun.Finance
 alias ChasingSun.Harvesting
 alias ChasingSun.Operations
 alias ChasingSun.Repo
 alias ChasingSun.Harvesting.HarvestRecord
+alias ChasingSun.Finance.{DeliveryNote, Invoice, Transaction}
 
 import Ecto.Query
 
@@ -92,6 +94,264 @@ case Accounts.get_user_by_email(guest_email) do
   user ->
     {:ok, _updated_user} = Accounts.update_guest_user(user, guest_defaults)
 end
+
+accountant_email = "accountant@gmail.com"
+
+case Accounts.get_user_by_email(accountant_email) do
+  nil ->
+    {:ok, _user} =
+      Accounts.register_user(%{
+        email: accountant_email,
+        password: "123456",
+        role: :accountant
+      })
+
+  user ->
+    {:ok, _updated_user} = Accounts.update_user_role(user, :accountant)
+end
+
+executive_email = "executive@gmail.com"
+
+case Accounts.get_user_by_email(executive_email) do
+  nil ->
+    {:ok, _user} =
+      Accounts.register_user(%{
+        email: executive_email,
+        password: "123456",
+        role: :executive
+      })
+
+  user ->
+    {:ok, _updated_user} = Accounts.update_user_role(user, :executive)
+end
+
+seed_clients = [
+  %{
+    name: "Greenfield Packhouse Ltd",
+    type: :packhouse,
+    contact_person: "Wanjiru Kamau",
+    phone: "+254712345001",
+    email: "procurement@greenfieldpackhouse.co.ke"
+  },
+  %{
+    name: "Naivasha Lakeview Hotel",
+    type: :hotel,
+    contact_person: "David Otieno",
+    phone: "+254712345002",
+    email: "purchasing@lakeviewhotel.co.ke"
+  },
+  %{
+    name: "Highland Tea Exporters",
+    type: :tea_company,
+    contact_person: "Grace Njeri",
+    phone: "+254712345003",
+    email: "grace@highlandtea.co.ke"
+  },
+  %{
+    name: "EastAfrica Spice Traders",
+    type: :spice_company,
+    contact_person: "Ahmed Yusuf",
+    phone: "+254712345004",
+    email: "ahmed@eastafricaspice.co.ke"
+  }
+]
+
+Enum.each(seed_clients, fn attrs ->
+  case Enum.find(Finance.list_clients(), &(&1.name == attrs.name)) do
+    nil -> Finance.create_client(attrs, admin)
+    client -> Finance.update_client(client, attrs, admin)
+  end
+end)
+
+clients_by_name =
+  Finance.list_clients()
+  |> Map.new(&{&1.name, &1})
+
+seed_transactions = [
+  %{
+    type: :revenue,
+    business_line: :horticulture,
+    amount: "168000.00",
+    occurred_on: "2026-07-15",
+    client: "Greenfield Packhouse Ltd",
+    category: "produce_sale",
+    description: "Seed finance revenue - cucumber delivery to Greenfield"
+  },
+  %{
+    type: :revenue,
+    business_line: :commodity,
+    amount: "245000.00",
+    occurred_on: "2026-07-14",
+    client: "Highland Tea Exporters",
+    category: "bulk_supply",
+    description: "Seed finance revenue - herbs and aromatics supply"
+  },
+  %{
+    type: :expense,
+    business_line: :horticulture,
+    amount: "42000.00",
+    occurred_on: "2026-07-13",
+    category: "inputs",
+    description: "Seed finance expense - greenhouse nutrients"
+  },
+  %{
+    type: :expense,
+    business_line: :commodity,
+    amount: "31500.00",
+    occurred_on: "2026-07-12",
+    client: "EastAfrica Spice Traders",
+    category: "transport",
+    description: "Seed finance expense - commodity logistics"
+  },
+  %{
+    type: :revenue,
+    business_line: :horticulture,
+    amount: "73500.00",
+    occurred_on: "2026-07-10",
+    client: "Naivasha Lakeview Hotel",
+    category: "produce_sale",
+    description: "Seed finance revenue - hotel fresh produce order"
+  }
+]
+
+seeded_transactions =
+  Map.new(seed_transactions, fn attrs ->
+    attrs =
+      attrs
+      |> Map.put(:client_id, attrs[:client] && Map.fetch!(clients_by_name, attrs.client).id)
+      |> Map.put(:recorded_by_id, admin.id)
+      |> Map.delete(:client)
+
+    transaction =
+      case Repo.get_by(Transaction, description: attrs.description) do
+        nil ->
+          %Transaction{}
+          |> Transaction.changeset(attrs)
+          |> Repo.insert!()
+
+        transaction ->
+          transaction
+          |> Transaction.changeset(attrs)
+          |> Repo.update!()
+      end
+
+    {transaction.description, transaction}
+  end)
+
+seed_invoices = [
+  %{
+    invoice_number: "CS-2026-SEED-001",
+    status: :sent,
+    due_date: "2026-07-28",
+    business_line: :horticulture,
+    client: "Greenfield Packhouse Ltd",
+    line_items: [
+      %{description: "Cucumber grade A - 1,200 kg", quantity: "1200", unit_price: "90.00"},
+      %{description: "Capsicum mixed color - 500 kg", quantity: "500", unit_price: "120.00"}
+    ]
+  },
+  %{
+    invoice_number: "CS-2026-SEED-002",
+    status: :paid,
+    due_date: "2026-07-20",
+    business_line: :horticulture,
+    client: "Naivasha Lakeview Hotel",
+    transaction_description: "Seed finance revenue - hotel fresh produce order",
+    line_items: [
+      %{description: "Chef selection vegetables", quantity: "350", unit_price: "150.00"},
+      %{description: "Weekly fresh herb bundle", quantity: "70", unit_price: "300.00"}
+    ]
+  },
+  %{
+    invoice_number: "CS-2026-SEED-003",
+    status: :draft,
+    due_date: "2026-08-05",
+    business_line: :commodity,
+    client: "EastAfrica Spice Traders",
+    line_items: [
+      %{description: "Dried herbs trial lot", quantity: "180", unit_price: "475.00"},
+      %{description: "Sorting and handling", quantity: "1", unit_price: "12500.00"}
+    ]
+  }
+]
+
+Enum.each(seed_invoices, fn attrs ->
+  attrs =
+    attrs
+    |> Map.put(:client_id, Map.fetch!(clients_by_name, attrs.client).id)
+    |> Map.put(
+      :transaction_id,
+      attrs[:transaction_description] &&
+        Map.fetch!(seeded_transactions, attrs.transaction_description).id
+    )
+    |> Map.delete(:client)
+    |> Map.delete(:transaction_description)
+
+  case Repo.get_by(Invoice, invoice_number: attrs.invoice_number) do
+    nil ->
+      %Invoice{}
+      |> Invoice.changeset(attrs)
+      |> Repo.insert!()
+
+    invoice ->
+      invoice
+      |> Invoice.changeset(attrs)
+      |> Repo.update!()
+  end
+end)
+
+seed_delivery_notes = [
+  %{
+    order_reference: "DN-SEED-2026-001",
+    client: "Greenfield Packhouse Ltd",
+    dispatched_on: "2026-07-15",
+    signed_by: "Wanjiru Kamau",
+    status: :delivered,
+    items: [
+      %{product: "Cucumber grade A", quantity_mt: "1.20", unit: "MT"},
+      %{product: "Capsicum mixed color", quantity_mt: "0.50", unit: "MT"}
+    ]
+  },
+  %{
+    order_reference: "DN-SEED-2026-002",
+    client: "Naivasha Lakeview Hotel",
+    dispatched_on: "2026-07-10",
+    signed_by: "David Otieno",
+    status: :delivered,
+    items: [
+      %{product: "Chef selection vegetables", quantity_mt: "0.35", unit: "MT"},
+      %{product: "Fresh herb bundle", quantity_mt: "0.07", unit: "MT"}
+    ]
+  },
+  %{
+    order_reference: "DN-SEED-2026-003",
+    client: "EastAfrica Spice Traders",
+    dispatched_on: "2026-07-16",
+    status: :pending,
+    items: [
+      %{product: "Dried herbs trial lot", quantity_mt: "0.18", unit: "MT"}
+    ]
+  }
+]
+
+Enum.each(seed_delivery_notes, fn attrs ->
+  attrs =
+    attrs
+    |> Map.put(:client_id, Map.fetch!(clients_by_name, attrs.client).id)
+    |> Map.delete(:client)
+
+  case Repo.get_by(DeliveryNote, order_reference: attrs.order_reference) do
+    nil ->
+      %DeliveryNote{}
+      |> DeliveryNote.changeset(attrs)
+      |> Repo.insert!()
+
+    delivery_note ->
+      delivery_note
+      |> DeliveryNote.changeset(attrs)
+      |> Repo.update!()
+  end
+end)
 
 ventures = Map.new(Operations.list_ventures(), &{&1.code, &1})
 
@@ -320,12 +580,18 @@ Seed complete.
 Seeded logins:
 - admin@gmail.com / 123456 (admin)
 - guest@gmail.com / 123456 (restricted guest)
+- accountant@gmail.com / 123456 (accountant)
+- executive@gmail.com / 123456 (executive)
 
 Seeded data:
 - #{length(rules)} crop rules
 - #{map_size(ventures)} ventures
 - #{length(seed_greenhouses)} greenhouses with active crop cycles
 - #{length(seed_harvest_records)} harvest records
+- #{length(seed_clients)} finance clients
+- #{length(seed_transactions)} finance transactions
+- #{length(seed_invoices)} finance invoices
+- #{length(seed_delivery_notes)} finance delivery notes
 """)
 
 # Script for populating the database. You can run it as:

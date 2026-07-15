@@ -7,6 +7,8 @@ defmodule ChasingSun.Application do
 
   @impl true
   def start(_type, _args) do
+    File.mkdir_p!(ChasingSun.Documents.upload_root())
+
     children = [
       ChasingSunWeb.Telemetry,
       ChasingSun.Repo,

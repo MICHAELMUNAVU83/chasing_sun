@@ -60,6 +60,40 @@ defmodule ChasingSunWeb.Router do
     end
   end
 
+  live_session :finance,
+    on_mount: [{ChasingSunWeb.UserAuth, :ensure_finance_access}] do
+    scope "/", ChasingSunWeb do
+      pipe_through [:browser, :require_authenticated_user]
+
+      live "/finance", FinanceDashboardLive, :index
+      live "/finance/transactions/new", TransactionsLive.Index, :new
+      live "/finance/transactions/:id/edit", TransactionsLive.Edit, :edit
+      live "/finance/transactions", TransactionsLive.Index, :index
+      live "/finance/invoices/new", InvoicesLive.New, :new
+      live "/finance/invoices", InvoicesLive.Index, :index
+      live "/finance/invoices/:id", InvoicesLive.Show, :show
+      live "/finance/delivery-notes/new", DeliveryNotesLive.Index, :new
+      live "/finance/delivery-notes", DeliveryNotesLive.Index, :index
+      live "/finance/clients/new", ClientsLive.Index, :new
+      live "/finance/clients", ClientsLive.Index, :index
+    end
+  end
+
+  live_session :documents,
+    on_mount: [{ChasingSunWeb.UserAuth, :ensure_document_access}] do
+    scope "/", ChasingSunWeb do
+      pipe_through [:browser, :require_authenticated_user]
+
+      live "/documents", DocumentsLive.Index, :index
+    end
+  end
+
+  scope "/", ChasingSunWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/documents/:id/download", DocumentDownloadController, :show
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", ChasingSunWeb do
   #   pipe_through :api

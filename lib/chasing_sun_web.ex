@@ -91,6 +91,8 @@ defmodule ChasingSunWeb do
       import ChasingSunWeb.CoreComponents
       import ChasingSunWeb.Components.StatusBadge
       import ChasingSunWeb.Components.SummaryCard
+      import ChasingSunWeb.Components.FinanceBadge
+      import ChasingSunWeb.Components.FinanceNav
       import ChasingSunWeb.FormatHelpers
 
       # Shortcut for generating JS commands

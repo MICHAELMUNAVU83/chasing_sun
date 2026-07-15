@@ -6,6 +6,11 @@ defmodule ChasingSunWeb.FormatHelpers do
 
   def format_currency(value, opts \\ [])
 
+  def format_currency(%Decimal{} = value, opts) do
+    decimals = Keyword.get(opts, :decimals, 2)
+    "KES " <> format_number(Decimal.to_float(value), decimals: decimals)
+  end
+
   def format_currency(value, opts) when is_number(value) do
     decimals = Keyword.get(opts, :decimals, default_decimals(value))
     "KES " <> format_number(value, decimals: decimals)
@@ -14,6 +19,11 @@ defmodule ChasingSunWeb.FormatHelpers do
   def format_currency(_value, opts), do: "KES " <> format_number(0, opts)
 
   def format_number(value, opts \\ [])
+
+  def format_number(%Decimal{} = value, opts) do
+    decimals = Keyword.get(opts, :decimals, 2)
+    format_number(Decimal.to_float(value), decimals: decimals)
+  end
 
   def format_number(value, opts) when is_integer(value) do
     decimals = Keyword.get(opts, :decimals, 0)

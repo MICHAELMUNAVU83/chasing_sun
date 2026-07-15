@@ -4,7 +4,9 @@ defmodule ChasingSun.Accounts.User do
 
   schema "users" do
     field :email, :string
-    field :role, Ecto.Enum, values: [:admin, :operator, :viewer, :guest], default: :viewer
+    field :role, Ecto.Enum,
+      values: [:admin, :operator, :viewer, :guest, :accountant, :executive],
+      default: :viewer
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :current_password, :string, virtual: true, redact: true

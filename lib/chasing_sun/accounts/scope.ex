@@ -11,53 +11,23 @@ defmodule ChasingSun.Accounts.Scope do
           | :manage_farm_visits
           | :manage_crop_rules
           | :delete_greenhouses
+          | :view_finance_dashboard
+          | :manage_finance
+          | :view_documents
+          | :bypass_document_visibility
 
-  def can?(%User{role: role}, action) when role in [:admin, :operator, :viewer, :guest] do
-    action in permissions(role)
-  end
+  def can?(%User{}, _action), do: true
 
   def can?(_, _), do: false
 
-  def permissions(:admin),
-    do: [
-      :view_dashboard,
-      :view_operations,
-      :manage_greenhouses,
-      :manage_harvest,
-      :manage_farm_visits,
-      :manage_crop_rules,
-      :delete_greenhouses
-    ]
-
-  def permissions(:operator),
-    do: [
-      :view_dashboard,
-      :view_operations,
-      :manage_greenhouses,
-      :manage_harvest,
-      :manage_farm_visits
-    ]
-
-  def permissions(:viewer), do: [:view_dashboard, :view_operations]
-
-  # Guests can only see the read-only operations dashboard — no revenue,
-  # performance, or management pages.
-  def permissions(:guest), do: [:view_dashboard]
+  def permissions(%User{}), do: all_permissions()
+  def permissions(_role), do: all_permissions()
 
   def label(%User{role: role}) when is_atom(role),
     do: role |> Atom.to_string() |> String.capitalize()
 
   def label(_), do: "Guest"
 
-  ## Guest view restrictions
-  #
-  # Guests are limited to read-only pages and, per account, admins can
-  # further restrict which pages, dashboard sections, and ventures they see.
-  # Pages with create/edit/delete controls (greenhouses, harvest, farm visits)
-  # and anything revenue/performance related are never offered to guests.
-
-  # The dashboard is always available to a guest; these are the extra
-  # read-only pages an admin can optionally grant.
   @guest_pages [
     %{key: "forecast", label: "Forecast"},
     %{key: "recommendations", label: "Recommendations"}
@@ -78,35 +48,40 @@ defmodule ChasingSun.Accounts.Scope do
   def guest_page_keys, do: Enum.map(@guest_pages, & &1.key)
   def guest_section_keys, do: Enum.map(@guest_sections, & &1.key)
 
-  def guest?(%User{role: :guest}), do: true
+  def guest?(%User{}), do: false
   def guest?(_), do: false
 
   @doc """
-  Whether a user may reach the given page key. Non-guests can reach any page
-  they have the operations permission for; guests are limited to the dashboard
-  plus the extra pages an admin granted them.
+  Whether a user may reach the given page key.
   """
-  def page_allowed?(%User{role: :guest} = user, page_key) do
-    page_key == "dashboard" or page_key in (user.allowed_pages || [])
-  end
-
-  def page_allowed?(user, _page_key), do: can?(user, :view_operations)
+  def page_allowed?(%User{}, _page_key), do: true
+  def page_allowed?(_, _page_key), do: false
 
   @doc """
-  Whether a dashboard section is visible to the user. Non-guests see all
-  sections; guests see only the sections an admin enabled.
+  Whether a dashboard section is visible to the user.
   """
-  def section_visible?(%User{role: :guest} = user, section_key),
-    do: section_key in (user.allowed_sections || [])
-
-  def section_visible?(_user, _section_key), do: true
+  def section_visible?(%User{}, _section_key), do: true
+  def section_visible?(_, _section_key), do: false
 
   @doc """
   The venture codes a user is limited to, or `nil` for no restriction.
   """
-  def visible_venture_codes(%User{role: :guest, allowed_venture_codes: codes})
-      when is_list(codes) and codes != [],
-      do: codes
+  def visible_venture_codes(%User{}), do: nil
+  def visible_venture_codes(_), do: nil
 
-  def visible_venture_codes(_user), do: nil
+  defp all_permissions do
+    [
+      :view_dashboard,
+      :view_operations,
+      :manage_greenhouses,
+      :manage_harvest,
+      :manage_farm_visits,
+      :manage_crop_rules,
+      :delete_greenhouses,
+      :view_finance_dashboard,
+      :manage_finance,
+      :view_documents,
+      :bypass_document_visibility
+    ]
+  end
 end
