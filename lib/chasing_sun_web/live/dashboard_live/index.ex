@@ -536,6 +536,10 @@ defmodule ChasingSunWeb.DashboardLive.Index do
       harvest_start_date: cycle && cycle.harvest_start_date,
       harvest_end_date: cycle && cycle.harvest_end_date,
       soil_recovery_end_date: cycle && cycle.soil_recovery_end_date,
+      soil_recovery_days:
+        Operations.CropPlanner.soil_recovery_days(
+          cycle && Enum.find(rules, &(&1.crop_type == cycle.crop_type))
+        ),
       crop_meta: crop_meta(cycle),
       status: status,
       expected_output: expected_output,
@@ -686,6 +690,13 @@ defmodule ChasingSunWeb.DashboardLive.Index do
         List.first(rows).greenhouse_id
     end
   end
+
+  defp soil_recovery_start_date(%{
+         soil_recovery_end_date: %Date{} = soil_recovery_end_date,
+         soil_recovery_days: days
+       })
+       when is_integer(days),
+       do: Date.add(soil_recovery_end_date, -days)
 
   defp soil_recovery_start_date(%{soil_recovery_end_date: %Date{} = soil_recovery_end_date}),
     do: Date.add(soil_recovery_end_date, -Operations.CropPlanner.soil_recovery_days())

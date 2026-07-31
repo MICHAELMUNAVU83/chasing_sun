@@ -30,7 +30,7 @@ defmodule ChasingSun.Operations.CropPlanner do
         maybe_put(
           normalized,
           "soil_recovery_end_date",
-          derive_soil_recovery_end_date(normalized)
+          derive_soil_recovery_end_date(normalized, rule)
         )
       end)
 
@@ -88,6 +88,9 @@ defmodule ChasingSun.Operations.CropPlanner do
 
   def soil_recovery_days, do: @soil_recovery_days
 
+  def soil_recovery_days(%CropRule{soil_recovery_days: days}) when is_integer(days), do: days
+  def soil_recovery_days(_rule), do: @soil_recovery_days
+
   defp derive_transplant_date(attrs, %CropRule{nursery_days: nursery_days})
        when is_integer(nursery_days) do
     transplant_date = fetch_date(attrs, ["transplant_date", :transplant_date])
@@ -144,7 +147,7 @@ defmodule ChasingSun.Operations.CropPlanner do
   defp derive_harvest_end_date(attrs, _rule),
     do: fetch_date(attrs, ["harvest_end_date", :harvest_end_date])
 
-  defp derive_soil_recovery_end_date(attrs) do
+  defp derive_soil_recovery_end_date(attrs, rule) do
     soil_recovery_end_date =
       fetch_date(attrs, ["soil_recovery_end_date", :soil_recovery_end_date])
 
@@ -153,7 +156,7 @@ defmodule ChasingSun.Operations.CropPlanner do
         soil_recovery_end_date
 
       %Date{} = harvest_end ->
-        Date.add(harvest_end, @soil_recovery_days)
+        Date.add(harvest_end, soil_recovery_days(rule))
 
       _ ->
         nil

@@ -312,7 +312,8 @@ defmodule ChasingSun.Operations do
 
       %CropCycle{} = cycle ->
         harvest_end_date = Date.add(today, -1)
-        soil_recovery_end_date = Date.add(today, CropPlanner.soil_recovery_days() - 1)
+        rule = Enum.find(list_crop_rules(), &(&1.crop_type == cycle.crop_type))
+        soil_recovery_end_date = Date.add(today, CropPlanner.soil_recovery_days(rule) - 1)
 
         Multi.new()
         |> Multi.update(

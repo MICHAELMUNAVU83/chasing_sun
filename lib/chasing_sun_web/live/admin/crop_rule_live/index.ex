@@ -166,6 +166,9 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
                     Harvest start: {rule.days_to_harvest || 0}d · Duration: {rule.harvest_period_days ||
                       0}d
                   </p>
+                  <p class="mt-1 text-xs text-[var(--muted)]">
+                    Soil recovery: {rule.soil_recovery_days || 0}d
+                  </p>
                 </td>
                 <td>
                   <p>1000: {format_number(rule.expected_yield_1000 || 0.0, decimals: 1)}</p>
@@ -232,6 +235,14 @@ defmodule ChasingSunWeb.Admin.CropRuleLive.Index do
                 label="Harvest period days"
               />
               <.input field={@rule_form[:forced_size]} label="Forced size" />
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <.input
+                field={@rule_form[:soil_recovery_days]}
+                type="number"
+                label="Soil recovery days"
+              />
             </div>
 
             <div class="grid gap-4 md:grid-cols-2">

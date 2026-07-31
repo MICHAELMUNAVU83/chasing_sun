@@ -7,6 +7,7 @@ defmodule ChasingSun.Operations.CropRule do
     field :nursery_days, :integer
     field :days_to_harvest, :integer
     field :harvest_period_days, :integer
+    field :soil_recovery_days, :integer, default: 30
     field :default_variety, :string
     field :varieties, {:array, :string}, default: []
     field :varieties_text, :string, virtual: true
@@ -27,6 +28,7 @@ defmodule ChasingSun.Operations.CropRule do
       :nursery_days,
       :days_to_harvest,
       :harvest_period_days,
+      :soil_recovery_days,
       :default_variety,
       :varieties,
       :varieties_text,
