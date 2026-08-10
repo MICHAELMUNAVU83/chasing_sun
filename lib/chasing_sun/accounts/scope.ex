@@ -9,6 +9,7 @@ defmodule ChasingSun.Accounts.Scope do
           | :manage_greenhouses
           | :manage_harvest
           | :manage_farm_visits
+          | :manage_agronomic_visits
           | :manage_crop_rules
           | :delete_greenhouses
           | :view_finance_dashboard
@@ -76,6 +77,7 @@ defmodule ChasingSun.Accounts.Scope do
       :manage_greenhouses,
       :manage_harvest,
       :manage_farm_visits,
+      :manage_agronomic_visits,
       :manage_crop_rules,
       :delete_greenhouses,
       :view_finance_dashboard,

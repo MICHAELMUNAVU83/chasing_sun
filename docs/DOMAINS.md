@@ -41,6 +41,7 @@ Key public functions:
 - Greenhouses/cycles: `list_greenhouses/1`, `get_greenhouse!/1`, `create_greenhouse/3`, `update_greenhouse/4`, `delete_greenhouse/2`, `terminate_production/3`
 - Recommendations/notifications: `refresh_daily_operations/1`, `list_operation_recommendations/1`, `recent_operation_notifications/2`, `expansion_recommendations/1`
 - Dashboard and audit: `dashboard_snapshot/1`, `recent_audit_events/1`
+- Agronomic visits: `list_agronomic_visits/1`, `get_agronomic_visit!/1`, `create_agronomic_visit/2`, `update_agronomic_visit/3`, `delete_agronomic_visit/2`, `agronomic_visit_schedule/1`, `check_agronomic_visit_schedule/1`
 - Farm visits: `list_farm_visit_reports/1`, `get_farm_visit_report!/1`, `get_farm_visit_report_by_date/1`, `upsert_farm_visit_report/2`, `update_farm_visit_report/3`
 
 Supporting modules include `CropPlanner`, `StatusCalculator`, `RecommendationEngine`, and `ExpansionEngine`.

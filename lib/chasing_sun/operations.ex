@@ -8,6 +8,7 @@ defmodule ChasingSun.Operations do
   alias ChasingSun.Accounts.User
 
   alias ChasingSun.Operations.{
+    AgronomicVisit,
     AuditEvent,
     CropCycle,
     CropPlanner,
@@ -272,16 +273,18 @@ defmodule ChasingSun.Operations do
   def recent_operation_notifications(limit \\ 8, filters \\ %{}) do
     venture_code = Map.get(filters, :venture_code) || Map.get(filters, "venture_code")
 
+    # Left joins so farm-wide notifications (no greenhouse, e.g. a late
+    # agronomic visit) survive both the join and any venture filter.
     query =
       from notification in OperationNotification,
-        join: greenhouse in assoc(notification, :greenhouse),
-        join: venture in assoc(greenhouse, :venture),
+        left_join: greenhouse in assoc(notification, :greenhouse),
+        left_join: venture in assoc(greenhouse, :venture),
         order_by: [desc: notification.notify_on, desc: notification.inserted_at],
         limit: ^limit
 
     query
-    |> maybe_filter_joined_venture(venture_code)
-    |> maybe_filter_joined_venture_codes(Map.get(filters, :venture_codes))
+    |> maybe_filter_notification_venture(venture_code)
+    |> maybe_filter_notification_venture_codes(Map.get(filters, :venture_codes))
     |> Repo.all()
     |> Repo.preload(greenhouse: :venture)
   end
@@ -422,6 +425,7 @@ defmodule ChasingSun.Operations do
       |> Enum.map(&sync_greenhouse(&1, rules, today))
 
     enforce_continuous_harvesting_rule(rules, today)
+    check_agronomic_visit_schedule(today)
 
     broadcast_refresh(today)
     result
@@ -492,8 +496,14 @@ defmodule ChasingSun.Operations do
     }
   end
 
+  @seeded_ventures [
+    {"cs", "Chasing Sun Core"},
+    {"csg", "Chasing Sun Growth"},
+    {"athi", "Athi River Farm"}
+  ]
+
   def ensure_venture_seeded do
-    for {code, name} <- [{"cs", "Chasing Sun Core"}, {"csg", "Chasing Sun Growth"}] do
+    for {code, name} <- @seeded_ventures do
       Repo.get_by(Venture, code: code) ||
         Repo.insert!(Venture.changeset(%Venture{}, %{code: code, name: name}))
     end
@@ -600,6 +610,211 @@ defmodule ChasingSun.Operations do
       {:error, :report, changeset, _} ->
         {:error, changeset}
     end
+  end
+
+  ## Agronomic visits
+
+  @agronomic_visit_interval_days 14
+  @agronomic_visit_late_kind "agronomic_visit_late"
+  @agronomic_report_extensions ~w(.pdf .doc .docx)
+  @agronomic_report_mime_types ~w(
+    application/pdf
+    application/msword
+    application/vnd.openxmlformats-officedocument.wordprocessingml.document
+  )
+  @agronomic_report_max_size 20_000_000
+
+  @doc "Agronomic visits are expected every #{@agronomic_visit_interval_days} days (bi-weekly)."
+  def agronomic_visit_interval_days, do: @agronomic_visit_interval_days
+  def agronomic_report_extensions, do: @agronomic_report_extensions
+  def agronomic_report_mime_types, do: @agronomic_report_mime_types
+  def agronomic_report_max_size, do: @agronomic_report_max_size
+
+  def agronomic_report_upload_root,
+    do: Application.app_dir(:chasing_sun, "priv/uploads/agronomic_reports")
+
+  def list_agronomic_visits(filters \\ %{}) do
+    limit = Map.get(filters, :limit) || Map.get(filters, "limit")
+
+    AgronomicVisit
+    |> order_by([visit], desc: visit.visited_on, desc: visit.updated_at)
+    |> maybe_limit_query(limit)
+    |> Repo.all()
+    |> Repo.preload(:inserted_by_user)
+  end
+
+  def get_agronomic_visit!(id) do
+    AgronomicVisit
+    |> Repo.get!(id)
+    |> Repo.preload(:inserted_by_user)
+  end
+
+  def last_agronomic_visit do
+    AgronomicVisit
+    |> order_by([visit], desc: visit.visited_on)
+    |> limit(1)
+    |> Repo.one()
+    |> case do
+      nil -> nil
+      visit -> Repo.preload(visit, :inserted_by_user)
+    end
+  end
+
+  def change_agronomic_visit(visit, attrs \\ %{}), do: AgronomicVisit.changeset(visit, attrs)
+
+  def create_agronomic_visit(attrs, actor \\ nil) do
+    attrs =
+      attrs
+      |> stringify_keys()
+      |> Map.put("inserted_by_user_id", actor && actor.id)
+
+    %AgronomicVisit{}
+    |> AgronomicVisit.changeset(attrs)
+    |> Repo.insert()
+    |> case do
+      {:ok, visit} ->
+        insert_audit(Repo, actor, "agronomic_visit", visit.id, "agronomic_visit_recorded", %{
+          visited_on: visit.visited_on
+        })
+
+        # A freshly logged visit resets the clock, so any open lateness alert
+        # for the period it covers no longer applies.
+        clear_agronomic_visit_notifications(visit.visited_on)
+
+        {:ok, Repo.preload(visit, :inserted_by_user)}
+
+      error ->
+        error
+    end
+  end
+
+  def update_agronomic_visit(%AgronomicVisit{} = visit, attrs, actor \\ nil) do
+    visit
+    |> AgronomicVisit.changeset(stringify_keys(attrs))
+    |> Repo.update()
+    |> case do
+      {:ok, updated} ->
+        insert_audit(Repo, actor, "agronomic_visit", updated.id, "agronomic_visit_updated", %{
+          visited_on: updated.visited_on
+        })
+
+        clear_agronomic_visit_notifications(updated.visited_on)
+        {:ok, Repo.preload(updated, :inserted_by_user)}
+
+      error ->
+        error
+    end
+  end
+
+  @doc "Removes the visit row and its uploaded report file. A missing file is ignored."
+  def delete_agronomic_visit(%AgronomicVisit{} = visit, actor \\ nil) do
+    case Repo.delete(visit) do
+      {:ok, deleted} ->
+        if deleted.report_file_url do
+          agronomic_report_upload_root() |> Path.join(deleted.report_file_url) |> File.rm()
+        end
+
+        insert_audit(Repo, actor, "agronomic_visit", deleted.id, "agronomic_visit_deleted", %{
+          visited_on: deleted.visited_on
+        })
+
+        {:ok, deleted}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Bi-weekly schedule state for agronomic visits.
+
+  Returns the last logged visit, when the next one is due (last visit +
+  #{@agronomic_visit_interval_days} days), how many days it is overdue and a
+  `:no_visits | :on_track | :due_today | :late` state. With no visits on record
+  the schedule is treated as late so the gap is visible rather than silent.
+  """
+  def agronomic_visit_schedule(today \\ Date.utc_today()) do
+    last_visit = last_agronomic_visit()
+
+    due_on =
+      case last_visit do
+        nil -> nil
+        visit -> Date.add(visit.visited_on, @agronomic_visit_interval_days)
+      end
+
+    days_overdue = if due_on, do: max(Date.diff(today, due_on), 0), else: nil
+
+    state =
+      cond do
+        is_nil(last_visit) -> :no_visits
+        days_overdue > 0 -> :late
+        Date.compare(today, due_on) == :eq -> :due_today
+        true -> :on_track
+      end
+
+    %{
+      last_visit: last_visit,
+      due_on: due_on,
+      days_overdue: days_overdue,
+      state: state,
+      interval_days: @agronomic_visit_interval_days
+    }
+  end
+
+  @doc """
+  Raises a farm-wide notification when the bi-weekly agronomic visit is overdue.
+
+  Deduplicated on the missed due date, so one alert is raised per missed visit
+  rather than one per day. Returns the notification, or `nil` when nothing is
+  late.
+  """
+  def check_agronomic_visit_schedule(today \\ Date.utc_today()) do
+    schedule = agronomic_visit_schedule(today)
+
+    case schedule.state do
+      :late ->
+        insert_farm_notification(%{
+          kind: @agronomic_visit_late_kind,
+          message:
+            "Agronomic visit is #{schedule.days_overdue} #{pluralize_days(schedule.days_overdue)} overdue. " <>
+              "The last visit was on #{Date.to_iso8601(schedule.last_visit.visited_on)} and the next one was due on #{Date.to_iso8601(schedule.due_on)}.",
+          notify_on: schedule.due_on,
+          sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          metadata: %{
+            "due_on" => Date.to_iso8601(schedule.due_on),
+            "last_visited_on" => Date.to_iso8601(schedule.last_visit.visited_on),
+            "days_overdue" => schedule.days_overdue
+          }
+        })
+
+      :no_visits ->
+        insert_farm_notification(%{
+          kind: @agronomic_visit_late_kind,
+          message:
+            "No agronomic visit has been recorded yet. Visits are expected every #{@agronomic_visit_interval_days} days — log the latest report to start the schedule.",
+          notify_on: today,
+          sent_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          metadata: %{"days_overdue" => nil}
+        })
+
+      _ ->
+        nil
+    end
+  end
+
+  defp pluralize_days(1), do: "day"
+  defp pluralize_days(_), do: "days"
+
+  defp clear_agronomic_visit_notifications(%Date{} = visited_on) do
+    covers_from = Date.add(visited_on, -@agronomic_visit_interval_days)
+
+    Repo.delete_all(
+      from notification in OperationNotification,
+        where:
+          is_nil(notification.greenhouse_id) and
+            notification.kind == ^@agronomic_visit_late_kind and
+            notification.notify_on >= ^covers_from
+    )
   end
 
   defp farm_visit_report_preloads do
@@ -739,6 +954,25 @@ defmodule ChasingSun.Operations do
   end
 
   defp maybe_filter_joined_venture_codes(query, _codes), do: query
+
+  defp maybe_filter_notification_venture(query, code) when code in [nil, "", "all"], do: query
+
+  defp maybe_filter_notification_venture(query, code) do
+    code = String.downcase(code)
+
+    from [notification, _greenhouse, venture] in query,
+      where: is_nil(notification.greenhouse_id) or venture.code == ^code
+  end
+
+  defp maybe_filter_notification_venture_codes(query, codes)
+       when is_list(codes) and codes != [] do
+    codes = Enum.map(codes, &String.downcase/1)
+
+    from [notification, _greenhouse, venture] in query,
+      where: is_nil(notification.greenhouse_id) or venture.code in ^codes
+  end
+
+  defp maybe_filter_notification_venture_codes(query, _codes), do: query
 
   defp maybe_persist_cycle(multi, greenhouse_key, cycle_attrs, rules) do
     if meaningful_cycle_attrs?(cycle_attrs) do
@@ -1061,6 +1295,31 @@ defmodule ChasingSun.Operations do
           |> OperationNotification.changeset(attrs)
           |> Repo.insert!()
           |> Repo.preload(greenhouse: :venture)
+
+        broadcast_notification(notification)
+        notification
+
+      notification ->
+        notification
+    end
+  end
+
+  defp insert_farm_notification(attrs) do
+    existing =
+      Repo.one(
+        from notification in OperationNotification,
+          where:
+            is_nil(notification.greenhouse_id) and notification.kind == ^attrs.kind and
+              notification.notify_on == ^attrs.notify_on,
+          limit: 1
+      )
+
+    case existing do
+      nil ->
+        notification =
+          %OperationNotification{}
+          |> OperationNotification.changeset(attrs)
+          |> Repo.insert!()
 
         broadcast_notification(notification)
         notification

@@ -8,6 +8,7 @@ erDiagram
   users ||--o{ harvest_records : inserts
   users ||--o{ audit_events : acts
   users ||--o{ farm_visit_reports : inserts
+  users ||--o{ agronomic_visits : inserts
   ventures ||--o{ greenhouses : groups
   greenhouses ||--o{ crop_cycles : has
   greenhouses ||--o{ harvest_records : records
@@ -32,7 +33,7 @@ Auth tokens keyed by `user_id`, `context`, and `token`. Tokens are deleted with 
 
 ### ventures
 
-Business grouping for greenhouses. `code` is unique.
+Business grouping for greenhouses. `code` is unique. Seeded ventures: `cs` (Chasing Sun Core), `csg` (Chasing Sun Growth), and `athi` (Athi River Farm).
 
 ### greenhouses
 
@@ -56,7 +57,11 @@ One current recommendation per greenhouse. Stores current crop, next crop/variet
 
 ### operation_notifications
 
-Operational alerts tied to greenhouse and crop cycle. Unique by `greenhouse_id`, `crop_cycle_id`, and `kind`.
+Operational alerts. Greenhouse-scoped rows are unique by `greenhouse_id`, `crop_cycle_id`, and `kind`. Farm-wide alerts (e.g. a late agronomic visit) leave `greenhouse_id`/`crop_cycle_id` null and are unique by `kind` and `notify_on`.
+
+### agronomic_visits
+
+One visit per `visited_on` date. Captures the agronomist, summary, the uploaded agronomic report (PDF/Word) file metadata, and the inserting user. Visits are expected every 14 days.
 
 ### farm_visit_reports
 

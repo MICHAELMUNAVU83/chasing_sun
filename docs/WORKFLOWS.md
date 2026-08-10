@@ -47,6 +47,14 @@
 4. Child `FarmVisitGreenhouseStatus` rows are cast through the report changeset and replaced as needed.
 5. An audit event records insert/update.
 
+## Agronomic Visits
+
+1. Admin or operator opens `/agronomic-visits`.
+2. The form captures visit date, agronomist, and summary, and requires the agronomic report as a PDF or Word upload (max 20MB, stored under `priv/uploads/agronomic_reports`).
+3. `Operations.create_agronomic_visit/2` stores the visit, writes an audit event, and clears any open lateness alert the visit covers.
+4. Visits are expected every 14 days. `Operations.agronomic_visit_schedule/1` derives the due date from the last visit and `check_agronomic_visit_schedule/1` raises a farm-wide `agronomic_visit_late` notification when the due date passes — deduplicated per missed due date. It runs on the daily `RecommendationServer` refresh and on page mount.
+5. Alerts surface in the dashboard and recommendations notification feeds, and as a banner on `/agronomic-visits`.
+
 ## Guest Access
 
 1. Admin opens `/admin/guests`.

@@ -42,6 +42,7 @@ defmodule ChasingSunWeb.Router do
       live "/greenhouses", GreenhouseLive.Index, :index
       live "/greenhouses/:id", GreenhouseLive.Show, :show
       live "/farm-visits", FarmVisitLive.Index, :index
+      live "/agronomic-visits", AgronomicVisitLive.Index, :index
       live "/harvest-records", HarvestRecordLive.Index, :index
       live "/performance", PerformanceLive.Index, :index
       live "/forecast", ForecastLive.Index, :index
@@ -92,6 +93,7 @@ defmodule ChasingSunWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     get "/documents/:id/download", DocumentDownloadController, :show
+    get "/agronomic-visits/:id/report", AgronomicReportDownloadController, :show
   end
 
   # Other scopes may use custom stacks.

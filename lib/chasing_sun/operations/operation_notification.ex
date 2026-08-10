@@ -26,7 +26,10 @@ defmodule ChasingSun.Operations.OperationNotification do
       :sent_at,
       :metadata
     ])
-    |> validate_required([:greenhouse_id, :crop_cycle_id, :kind, :message, :notify_on, :sent_at])
+    |> validate_required([:kind, :message, :notify_on, :sent_at])
     |> unique_constraint([:greenhouse_id, :crop_cycle_id, :kind])
+    |> unique_constraint([:kind, :notify_on],
+      name: :operation_notifications_farm_wide_kind_notify_on
+    )
   end
 end

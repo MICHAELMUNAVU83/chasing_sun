@@ -75,6 +75,7 @@ defmodule ChasingSunWeb.Layouts do
           %{title: "Recommendations", path: ~p"/recommendations"},
           %{title: "Greenhouses", path: ~p"/greenhouses"},
           %{title: "Farm Visits", path: ~p"/farm-visits", label: "Visits"},
+          %{title: "Agronomic Visits", path: ~p"/agronomic-visits", label: "Agronomy"},
           %{title: "Harvest Records", path: ~p"/harvest-records", label: "Harvest"},
           %{title: "Performance", path: ~p"/performance"},
           %{title: "Forecast", path: ~p"/forecast"}

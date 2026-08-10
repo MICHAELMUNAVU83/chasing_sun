@@ -228,7 +228,7 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
 
             <div class="mt-6 space-y-3">
               <div :for={notification <- @notifications} class="rounded-xl border border-zinc-200 p-4">
-                <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
+                <p class="font-semibold text-[var(--ink)]">{notification_source(notification)}</p>
                 <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
                 <p class="mt-3 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                   {format_date(notification.notify_on)}
@@ -327,6 +327,9 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
 
   defp suggested_names_label([]), do: "TBD"
   defp suggested_names_label(names), do: Enum.join(names, ", ")
+
+  defp notification_source(%{greenhouse: %{name: name}}), do: name
+  defp notification_source(_notification), do: "Farm-wide"
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "TBD"

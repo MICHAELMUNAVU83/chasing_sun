@@ -391,7 +391,7 @@ defmodule ChasingSunWeb.DashboardLive.Index do
             >
               <div class="flex items-start justify-between gap-4">
                 <div>
-                  <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
+                  <p class="font-semibold text-[var(--ink)]">{notification_source(notification)}</p>
                   <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
                 </div>
                 <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -632,6 +632,9 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   defp toggle_label(collapsed_sections, section) do
     if section_collapsed?(collapsed_sections, section), do: "Show", else: "Hide"
   end
+
+  defp notification_source(%{greenhouse: %{name: name}}), do: name
+  defp notification_source(_notification), do: "Farm-wide"
 
   defp format_date(nil), do: "TBD"
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
