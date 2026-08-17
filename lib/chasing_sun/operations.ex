@@ -268,6 +268,51 @@ defmodule ChasingSun.Operations do
     |> maybe_filter_joined_venture_codes(Map.get(filters, :venture_codes))
     |> Repo.all()
     |> Repo.preload(greenhouse: :venture)
+    |> sort_recommendations_by_urgency()
+  end
+
+  @recommendation_action_fields [
+    :nursery_date,
+    :transplant_date,
+    :soil_recovery_end_date,
+    :harvest_start_date,
+    :harvest_end_date
+  ]
+
+  @doc """
+  Orders recommendations by how soon they need action: the closest action date
+  first, later dates after, and undated recommendations last. The greenhouse
+  sequence keeps the order stable when two recommendations share a date.
+  """
+  def sort_recommendations_by_urgency(recommendations) do
+    today = Date.utc_today()
+
+    Enum.sort_by(recommendations, fn recommendation ->
+      case next_action_date(recommendation, today) do
+        %Date{} = date -> {0, Date.to_erl(date), recommendation.greenhouse.sequence_no}
+        nil -> {1, {9999, 12, 31}, recommendation.greenhouse.sequence_no}
+      end
+    end)
+  end
+
+  @doc """
+  The soonest date a recommendation still needs attention on. Dates that have
+  already passed are ignored unless every date is in the past, in which case the
+  most recent one is used so overdue work stays at the top.
+  """
+  def next_action_date(recommendation, today \\ Date.utc_today()) do
+    dates =
+      @recommendation_action_fields
+      |> Enum.map(&Map.get(recommendation, &1))
+      |> Enum.filter(&match?(%Date{}, &1))
+
+    upcoming = Enum.filter(dates, &(Date.compare(&1, today) != :lt))
+
+    cond do
+      upcoming != [] -> Enum.min_by(upcoming, &Date.to_erl/1)
+      dates != [] -> Enum.max_by(dates, &Date.to_erl/1)
+      true -> nil
+    end
   end
 
   def recent_operation_notifications(limit \\ 8, filters \\ %{}) do

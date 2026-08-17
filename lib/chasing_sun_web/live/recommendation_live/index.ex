@@ -154,9 +154,14 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
                     )}
                   </p>
                 </div>
-                <span class="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                  {humanize_kind(recommendation.recommendation_kind)}
-                </span>
+                <div class="flex flex-col items-end gap-1">
+                  <span class="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                    {humanize_kind(recommendation.recommendation_kind)}
+                  </span>
+                  <span :if={Operations.next_action_date(recommendation)} class="text-xs text-zinc-400">
+                    Next action {format_date(Operations.next_action_date(recommendation))}
+                  </span>
+                </div>
               </div>
 
               <div class="mt-4 flex items-center gap-4">

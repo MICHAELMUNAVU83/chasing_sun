@@ -49,6 +49,7 @@ defmodule ChasingSun.Accounts.Scope do
   def guest_page_keys, do: Enum.map(@guest_pages, & &1.key)
   def guest_section_keys, do: Enum.map(@guest_sections, & &1.key)
 
+  def guest?(%User{role: :guest}), do: true
   def guest?(%User{}), do: false
   def guest?(_), do: false
 

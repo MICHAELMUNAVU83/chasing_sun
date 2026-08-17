@@ -1,6 +1,7 @@
 defmodule ChasingSunWeb.HarvestRecordLive.Index do
   use ChasingSunWeb, :live_view
 
+  alias ChasingSun.Accounts.Scope
   alias ChasingSun.Harvesting
   alias ChasingSun.Harvesting.HarvestRecord
   alias ChasingSun.OpenAI
@@ -18,6 +19,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
        max_file_size: 8_000_000
      )
      |> assign(:page_title, "Harvest Records")
+     |> assign(:hide_prices?, Scope.guest?(socket.assigns[:current_user]))
      |> assign(:current_harvest_record, nil)
      |> assign(:pickup_note_analysis, nil)
      |> assign(:form_modal_open, false)
@@ -160,6 +162,17 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               hint="Units with at least one harvest entry"
               accent="ink"
             />
+            <.summary_card
+              title="Actual harvest this week"
+              value={format_total(@current_week_yield)}
+              hint={"Recorded #{format_date(@current_week_start)} – #{format_date(@current_week_end)}"}
+              accent="yellow"
+            />
+            <.summary_card
+              title="Average weekly actual"
+              value={format_total(@average_weekly_yield)}
+              hint={weekly_average_hint(@weeks_recorded)}
+            />
           </div>
         </div>
 
@@ -204,7 +217,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <th>Harvested crop</th>
                 <th>Grade</th>
                 <th>Actual yield</th>
-                <th>Price / kg</th>
+                <th :if={not @hide_prices?}>Price / kg</th>
                 <th>Notes</th>
                 <th></th>
               </tr>
@@ -227,7 +240,9 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <td class="font-semibold text-[var(--ink)]">
                   {format_quantity(record.actual_yield)}
                 </td>
-                <td class="text-[var(--muted)]">{format_price(record.price_per_kg)}</td>
+                <td :if={not @hide_prices?} class="text-[var(--muted)]">
+                  {format_price(record.price_per_kg)}
+                </td>
                 <td class="max-w-xs text-[var(--muted)]">{blank_fallback(record.notes)}</td>
                 <td class="text-right">
                   <button
@@ -242,7 +257,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 </td>
               </tr>
               <tr :if={Enum.empty?(@records)}>
-                <td colspan="9" class="text-center text-sm text-[var(--muted)]">
+                <td colspan={if @hide_prices?, do: 8, else: 9} class="text-center text-sm text-[var(--muted)]">
                   No harvest records found.
                 </td>
               </tr>
@@ -371,6 +386,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               required
             />
             <.input
+              :if={not @hide_prices?}
               field={@harvest_form[:price_per_kg]}
               type="number"
               step="any"
@@ -399,15 +415,48 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
 
   defp load_records(socket, venture_code) do
     records = Harvesting.list_harvest_records(filters_for(venture_code))
+    {week_start, week_end} = current_week_range()
+
+    weeks_recorded = records |> Enum.map(& &1.week_ending_on) |> Enum.uniq() |> length()
 
     assign(socket,
       selected_venture: venture_code,
       ventures: Operations.list_ventures(),
       records: records,
       tracked_units: records |> Enum.map(& &1.greenhouse_id) |> Enum.uniq() |> length(),
+      current_week_start: week_start,
+      current_week_end: week_end,
+      current_week_yield: total_yield(records_in_range(records, week_start, week_end)),
+      weeks_recorded: weeks_recorded,
+      average_weekly_yield: average_weekly_yield(records, weeks_recorded),
       form_greenhouses: Operations.list_greenhouses(filters_for(venture_code))
     )
   end
+
+  # Harvest dates are the real pickup dates, so the "this week" figure covers the
+  # Monday-to-Sunday window rather than a single Saturday.
+  defp current_week_range do
+    today = Date.utc_today()
+    start_of_week = Date.beginning_of_week(today)
+
+    {start_of_week, Date.end_of_week(today)}
+  end
+
+  defp records_in_range(records, start_date, end_date) do
+    Enum.filter(records, fn record ->
+      Date.compare(record.week_ending_on, start_date) != :lt and
+        Date.compare(record.week_ending_on, end_date) != :gt
+    end)
+  end
+
+  defp total_yield(records), do: Enum.reduce(records, 0.0, &((&1.actual_yield || 0.0) + &2))
+
+  defp average_weekly_yield(_records, 0), do: 0.0
+  defp average_weekly_yield(records, weeks), do: total_yield(records) / weeks
+
+  defp weekly_average_hint(0), do: "No harvest weeks recorded yet"
+  defp weekly_average_hint(1), do: "Across 1 recorded week"
+  defp weekly_average_hint(weeks), do: "Across #{weeks} recorded weeks"
 
   defp reset_form(socket) do
     default_greenhouse_id =
@@ -477,6 +526,12 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
     attrs
     |> Map.new(fn {key, value} -> {to_string(key), value} end)
     |> Map.put("inserted_by_user_id", actor && actor.id)
+    |> drop_price_for_guest(actor)
+  end
+
+  # Guests never see prices, so ignore any price they might still post.
+  defp drop_price_for_guest(attrs, actor) do
+    if Scope.guest?(actor), do: Map.delete(attrs, "price_per_kg"), else: attrs
   end
 
   defp find_record!(records, id) do
