@@ -68,6 +68,10 @@ defmodule ChasingSun.Accounts.Scope do
   @doc """
   The venture codes a user is limited to, or `nil` for no restriction.
   """
+  def visible_venture_codes(%User{role: :guest, allowed_venture_codes: codes})
+      when is_list(codes) and codes != [],
+      do: codes
+
   def visible_venture_codes(%User{}), do: nil
   def visible_venture_codes(_), do: nil
 
