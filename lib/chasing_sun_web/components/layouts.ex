@@ -81,10 +81,19 @@ defmodule ChasingSunWeb.Layouts do
           %{title: "Forecast", path: ~p"/forecast"}
         ]
       else
-        [dashboard]
+        [dashboard | guest_navigation(current_user)]
       end
 
     base ++ finance_and_document_navigation(current_user)
+  end
+
+  defp guest_navigation(current_user) do
+    [
+      %{title: "Recommendations", path: ~p"/recommendations", key: "recommendations"},
+      %{title: "Forecast", path: ~p"/forecast", key: "forecast"}
+    ]
+    |> Enum.filter(&ChasingSun.Accounts.Scope.page_allowed?(current_user, &1.key))
+    |> Enum.map(&Map.delete(&1, :key))
   end
 
   defp finance_and_document_navigation(current_user) do

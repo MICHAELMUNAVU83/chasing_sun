@@ -17,12 +17,31 @@ defmodule ChasingSun.Accounts.Scope do
           | :view_documents
           | :bypass_document_visibility
 
-  def can?(%User{}, _action), do: true
+  def can?(%User{} = user, action), do: action in permissions(user)
 
   def can?(_, _), do: false
 
-  def permissions(%User{}), do: all_permissions()
-  def permissions(_role), do: all_permissions()
+  def permissions(%User{role: role}), do: permissions(role)
+  def permissions(:admin), do: all_permissions()
+
+  def permissions(:operator),
+    do: [
+      :view_dashboard,
+      :view_operations,
+      :manage_greenhouses,
+      :manage_harvest,
+      :manage_farm_visits,
+      :manage_agronomic_visits
+    ]
+
+  def permissions(:viewer), do: [:view_dashboard, :view_operations]
+  def permissions(:guest), do: [:view_dashboard]
+  def permissions(:accountant), do: [:view_finance_dashboard, :manage_finance]
+
+  def permissions(:executive),
+    do: [:view_finance_dashboard, :view_documents, :bypass_document_visibility]
+
+  def permissions(_role), do: []
 
   def label(%User{role: role}) when is_atom(role),
     do: role |> Atom.to_string() |> String.capitalize()
@@ -56,12 +75,18 @@ defmodule ChasingSun.Accounts.Scope do
   @doc """
   Whether a user may reach the given page key.
   """
-  def page_allowed?(%User{}, _page_key), do: true
+  def page_allowed?(%User{role: :guest, allowed_pages: pages}, page_key),
+    do: page_key in (pages || [])
+
+  def page_allowed?(%User{} = user, _page_key), do: can?(user, :view_operations)
   def page_allowed?(_, _page_key), do: false
 
   @doc """
   Whether a dashboard section is visible to the user.
   """
+  def section_visible?(%User{role: :guest, allowed_sections: sections}, section_key),
+    do: section_key in (sections || [])
+
   def section_visible?(%User{}, _section_key), do: true
   def section_visible?(_, _section_key), do: false
 
@@ -74,6 +99,34 @@ defmodule ChasingSun.Accounts.Scope do
 
   def visible_venture_codes(%User{}), do: nil
   def visible_venture_codes(_), do: nil
+
+  @doc "The greenhouse ids a guest is explicitly limited to, or `nil`."
+  def visible_greenhouse_ids(%User{role: :guest, allowed_greenhouse_ids: ids})
+      when is_list(ids) and ids != [],
+      do: ids
+
+  def visible_greenhouse_ids(_), do: nil
+
+  @doc "Filters that must be applied to every operations query for this user."
+  def operations_filters(%User{} = user) do
+    case visible_greenhouse_ids(user) do
+      ids when is_list(ids) -> %{greenhouse_ids: ids}
+      nil -> maybe_venture_filters(visible_venture_codes(user))
+    end
+  end
+
+  def operations_filters(_), do: %{}
+
+  def operations_filters(user, venture_code) do
+    filters = operations_filters(user)
+
+    if venture_code in [nil, "", "all"],
+      do: filters,
+      else: Map.put(filters, :venture_code, venture_code)
+  end
+
+  defp maybe_venture_filters(nil), do: %{}
+  defp maybe_venture_filters(codes), do: %{venture_codes: codes}
 
   defp all_permissions do
     [

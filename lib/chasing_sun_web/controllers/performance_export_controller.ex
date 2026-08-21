@@ -7,7 +7,12 @@ defmodule ChasingSunWeb.PerformanceExportController do
 
   def show(conn, params) do
     if Scope.page_allowed?(conn.assigns.current_user, "operations") do
-      report = Analytics.performance_report(export_filters(params))
+      filters =
+        conn.assigns.current_user
+        |> Scope.operations_filters(params["venture_code"])
+        |> Map.merge(export_filters(params))
+
+      report = Analytics.performance_report(filters)
 
       filename = export_filename(report)
 
@@ -24,7 +29,6 @@ defmodule ChasingSunWeb.PerformanceExportController do
 
   defp export_filters(params) do
     %{
-      venture_code: params["venture_code"],
       mode: params["mode"],
       greenhouse_id: params["greenhouse_id"],
       week: params["week"],

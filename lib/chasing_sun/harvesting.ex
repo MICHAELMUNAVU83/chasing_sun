@@ -19,11 +19,14 @@ defmodule ChasingSun.Harvesting do
 
     HarvestRecord
     |> join(:inner, [record], greenhouse in assoc(record, :greenhouse))
+    |> join(:inner, [_record, greenhouse], venture in assoc(greenhouse, :venture))
     |> maybe_filter_venture(venture_code)
+    |> maybe_filter_venture_codes(Map.get(filters, :venture_codes))
+    |> maybe_filter_greenhouse_ids(Map.get(filters, :greenhouse_ids))
     |> maybe_filter_week(week_ending_on)
     |> maybe_filter_start_date(start_date)
     |> maybe_filter_end_date(end_date)
-    |> preload([record, greenhouse], ^record_preloads())
+    |> preload([record, greenhouse, _venture], ^record_preloads())
     |> order_by([record], desc: record.week_ending_on, desc: record.updated_at)
     |> Repo.all()
   end
@@ -140,16 +143,27 @@ defmodule ChasingSun.Harvesting do
   defp maybe_filter_venture(query, "all"), do: query
 
   defp maybe_filter_venture(query, code) do
-    from [record, greenhouse] in query,
-      join: venture in assoc(greenhouse, :venture),
+    from [_record, _greenhouse, venture] in query,
       where: venture.code == ^String.downcase(code)
   end
+
+  defp maybe_filter_venture_codes(query, codes) when is_list(codes) and codes != [] do
+    from [_record, _greenhouse, venture] in query, where: venture.code in ^codes
+  end
+
+  defp maybe_filter_venture_codes(query, _codes), do: query
+
+  defp maybe_filter_greenhouse_ids(query, ids) when is_list(ids) and ids != [] do
+    from [_record, greenhouse, _venture] in query, where: greenhouse.id in ^ids
+  end
+
+  defp maybe_filter_greenhouse_ids(query, _ids), do: query
 
   defp maybe_filter_week(query, nil), do: query
   defp maybe_filter_week(query, ""), do: query
 
   defp maybe_filter_week(query, week_ending_on) do
-    from [record, _greenhouse] in query,
+    from [record, _greenhouse, _venture] in query,
       where: record.week_ending_on == ^coerce_date!(week_ending_on)
   end
 
@@ -157,7 +171,7 @@ defmodule ChasingSun.Harvesting do
   defp maybe_filter_start_date(query, ""), do: query
 
   defp maybe_filter_start_date(query, start_date) do
-    from [record, _greenhouse] in query,
+    from [record, _greenhouse, _venture] in query,
       where: record.week_ending_on >= ^coerce_date!(start_date)
   end
 
@@ -165,7 +179,7 @@ defmodule ChasingSun.Harvesting do
   defp maybe_filter_end_date(query, ""), do: query
 
   defp maybe_filter_end_date(query, end_date) do
-    from [record, _greenhouse] in query,
+    from [record, _greenhouse, _venture] in query,
       where: record.week_ending_on <= ^coerce_date!(end_date)
   end
 

@@ -2,6 +2,7 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
   use ChasingSunWeb, :live_view
 
   alias ChasingSun.Operations
+  alias ChasingSun.Accounts.Scope
 
   @impl true
   def mount(params, _session, socket) do
@@ -158,7 +159,10 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
                   <span class="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">
                     {humanize_kind(recommendation.recommendation_kind)}
                   </span>
-                  <span :if={Operations.next_action_date(recommendation)} class="text-xs text-zinc-400">
+                  <span
+                    :if={Operations.next_action_date(recommendation)}
+                    class="text-xs text-zinc-400"
+                  >
                     Next action {format_date(Operations.next_action_date(recommendation))}
                   </span>
                 </div>
@@ -265,13 +269,17 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
   end
 
   defp load_recommendations(socket, venture_code) do
-    filters = filters_for(venture_code)
+    filters = Scope.operations_filters(socket.assigns.current_user, venture_code)
 
     assign(socket,
       selected_venture: venture_code,
-      ventures: Operations.list_ventures(),
+      ventures: visible_ventures(socket.assigns.current_user),
       recommendations: Operations.list_operation_recommendations(filters),
-      expansions: Operations.expansion_recommendations(),
+      expansions:
+        if(map_size(Scope.operations_filters(socket.assigns.current_user)) == 0,
+          do: Operations.expansion_recommendations(),
+          else: []
+        ),
       notifications: Operations.recent_operation_notifications(8, filters)
     )
   end
@@ -287,8 +295,14 @@ defmodule ChasingSunWeb.RecommendationLive.Index do
     if selected_venture == venture_code, do: "filter-tab filter-tab-active", else: "filter-tab"
   end
 
-  defp filters_for("all"), do: %{}
-  defp filters_for(venture_code), do: %{venture_code: venture_code}
+  defp visible_ventures(user) do
+    user
+    |> Scope.operations_filters()
+    |> Operations.list_greenhouses()
+    |> Enum.map(& &1.venture)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.name)
+  end
 
   defp due_soon_count(recommendations, field) do
     today = Date.utc_today()

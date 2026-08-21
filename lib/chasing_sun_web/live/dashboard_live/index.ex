@@ -490,10 +490,11 @@ defmodule ChasingSunWeb.DashboardLive.Index do
   end
 
   defp load_dashboard(socket, venture_code) do
-    allowed_codes = Scope.visible_venture_codes(socket.assigns[:current_user])
+    scope_filters = Scope.operations_filters(socket.assigns[:current_user])
+    allowed_codes = visible_venture_codes(scope_filters)
     ventures = visible_ventures(allowed_codes)
     venture_code = sanitize_venture_code(venture_code, allowed_codes)
-    filters = filters_for(venture_code, allowed_codes)
+    filters = Scope.operations_filters(socket.assigns[:current_user], venture_code)
     snapshot = Analytics.dashboard(filters)
     forecast = Analytics.forecast(filters)
     rules = Operations.list_crop_rules()
@@ -582,28 +583,21 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     end
   end
 
-  # No guest venture restriction: behave as before.
-  defp filters_for(venture_code, nil), do: filters_for(venture_code)
-  # Guest restricted to a set of ventures: a specific (allowed) selection wins,
-  # otherwise constrain "all" to the allowed set so nothing else leaks in.
-  defp filters_for("all", allowed_codes), do: %{venture_codes: allowed_codes}
-
-  defp filters_for(venture_code, allowed_codes) do
-    if venture_code in allowed_codes do
-      %{venture_code: venture_code}
-    else
-      %{venture_codes: allowed_codes}
-    end
-  end
-
-  defp filters_for("all"), do: %{}
-  defp filters_for(venture_code), do: %{venture_code: venture_code}
-
   defp visible_ventures(nil), do: Operations.list_ventures()
 
   defp visible_ventures(allowed_codes) do
     Enum.filter(Operations.list_ventures(), &(&1.code in allowed_codes))
   end
+
+  defp visible_venture_codes(%{greenhouse_ids: _ids} = filters) do
+    filters
+    |> Operations.list_greenhouses()
+    |> Enum.map(& &1.venture.code)
+    |> Enum.uniq()
+  end
+
+  defp visible_venture_codes(%{venture_codes: codes}), do: codes
+  defp visible_venture_codes(_filters), do: nil
 
   # Keep guests from forcing an out-of-scope venture via the URL.
   defp sanitize_venture_code(venture_code, nil), do: venture_code

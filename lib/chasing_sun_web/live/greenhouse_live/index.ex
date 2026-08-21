@@ -3,6 +3,7 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
 
   alias ChasingSun.Operations
   alias ChasingSun.Operations.{CropCycle, CropPlanner, Greenhouse}
+  alias ChasingSun.Accounts.Scope
 
   @default_tank_capacity "1000 L"
 
@@ -512,11 +513,22 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
   end
 
   defp load_greenhouses(socket, venture_code) do
+    filters = Scope.operations_filters(socket.assigns.current_user, venture_code)
+
     assign(socket,
       selected_venture: venture_code,
-      ventures: Operations.list_ventures(),
-      greenhouses: Operations.list_greenhouses(filters_for(venture_code))
+      ventures: visible_ventures(socket.assigns.current_user),
+      greenhouses: Operations.list_greenhouses(filters)
     )
+  end
+
+  defp visible_ventures(user) do
+    user
+    |> Scope.operations_filters()
+    |> Operations.list_greenhouses()
+    |> Enum.map(& &1.venture)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.name)
   end
 
   defp reset_forms(socket) do
@@ -628,9 +640,6 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
   defp filter_tab_class(selected_venture, venture_code) do
     if selected_venture == venture_code, do: "filter-tab filter-tab-active", else: "filter-tab"
   end
-
-  defp filters_for("all"), do: %{}
-  defp filters_for(venture_code), do: %{venture_code: venture_code}
 
   defp changeset_error_summary(changeset) do
     changeset

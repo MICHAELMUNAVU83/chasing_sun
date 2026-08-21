@@ -4,9 +4,11 @@ defmodule ChasingSun.Accounts.User do
 
   schema "users" do
     field :email, :string
+
     field :role, Ecto.Enum,
       values: [:admin, :operator, :viewer, :guest, :accountant, :executive],
       default: :viewer
+
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :current_password, :string, virtual: true, redact: true
@@ -14,6 +16,7 @@ defmodule ChasingSun.Accounts.User do
     field :allowed_pages, {:array, :string}, default: []
     field :allowed_sections, {:array, :string}, default: []
     field :allowed_venture_codes, {:array, :string}, default: []
+    field :allowed_greenhouse_ids, {:array, :integer}, default: []
 
     timestamps(type: :utc_datetime)
   end
@@ -69,7 +72,8 @@ defmodule ChasingSun.Accounts.User do
       :password,
       :allowed_pages,
       :allowed_sections,
-      :allowed_venture_codes
+      :allowed_venture_codes,
+      :allowed_greenhouse_ids
     ])
     |> put_change(:role, :guest)
     |> validate_email(opts)

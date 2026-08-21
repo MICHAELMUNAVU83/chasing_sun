@@ -127,11 +127,15 @@ defmodule ChasingSun.Analytics.PerformanceReport do
   defp base_filters(filters) do
     venture_code = get_value(filters, [:venture_code, "venture_code"], "all")
 
+    access_filters =
+      filters
+      |> Map.take([:venture_codes, :greenhouse_ids])
+
     case venture_code do
-      nil -> %{}
-      "all" -> %{}
-      "" -> %{}
-      code -> %{venture_code: code}
+      nil -> access_filters
+      "all" -> access_filters
+      "" -> access_filters
+      code -> Map.put(access_filters, :venture_code, code)
     end
   end
 

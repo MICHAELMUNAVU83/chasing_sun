@@ -4,6 +4,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   alias ChasingSun.Accounts.Scope
   alias ChasingSun.Harvesting
   alias ChasingSun.Harvesting.HarvestRecord
+  alias ChasingSun.Accounts.Scope
   alias ChasingSun.OpenAI
   alias ChasingSun.Operations
 
@@ -257,7 +258,10 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 </td>
               </tr>
               <tr :if={Enum.empty?(@records)}>
-                <td colspan={if @hide_prices?, do: 8, else: 9} class="text-center text-sm text-[var(--muted)]">
+                <td
+                  colspan={if @hide_prices?, do: 8, else: 9}
+                  class="text-center text-sm text-[var(--muted)]"
+                >
                   No harvest records found.
                 </td>
               </tr>
@@ -414,14 +418,15 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   end
 
   defp load_records(socket, venture_code) do
-    records = Harvesting.list_harvest_records(filters_for(venture_code))
+    filters = Scope.operations_filters(socket.assigns.current_user, venture_code)
+    records = Harvesting.list_harvest_records(filters)
     {week_start, week_end} = current_week_range()
 
     weeks_recorded = records |> Enum.map(& &1.week_ending_on) |> Enum.uniq() |> length()
 
     assign(socket,
       selected_venture: venture_code,
-      ventures: Operations.list_ventures(),
+      ventures: visible_ventures(socket.assigns.current_user),
       records: records,
       tracked_units: records |> Enum.map(& &1.greenhouse_id) |> Enum.uniq() |> length(),
       current_week_start: week_start,
@@ -429,8 +434,17 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
       current_week_yield: total_yield(records_in_range(records, week_start, week_end)),
       weeks_recorded: weeks_recorded,
       average_weekly_yield: average_weekly_yield(records, weeks_recorded),
-      form_greenhouses: Operations.list_greenhouses(filters_for(venture_code))
+      form_greenhouses: Operations.list_greenhouses(filters)
     )
+  end
+
+  defp visible_ventures(user) do
+    user
+    |> Scope.operations_filters()
+    |> Operations.list_greenhouses()
+    |> Enum.map(& &1.venture)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.name)
   end
 
   # Harvest dates are the real pickup dates, so the "this week" figure covers the
@@ -509,9 +523,6 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   defp filter_tab_class(selected_venture, venture_code) do
     if selected_venture == venture_code, do: "filter-tab filter-tab-active", else: "filter-tab"
   end
-
-  defp filters_for("all"), do: %{}
-  defp filters_for(venture_code), do: %{venture_code: venture_code}
 
   defp changeset_error_summary(changeset) do
     changeset

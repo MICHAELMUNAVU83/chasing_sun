@@ -2,6 +2,7 @@ defmodule ChasingSunWeb.ForecastLive.Index do
   use ChasingSunWeb, :live_view
 
   alias ChasingSun.Analytics
+  alias ChasingSun.Accounts.Scope
   alias ChasingSun.Operations
 
   @impl true
@@ -290,13 +291,13 @@ defmodule ChasingSunWeb.ForecastLive.Index do
   end
 
   defp load_forecast(socket, venture_code) do
-    filters = filters_for(venture_code)
+    filters = Scope.operations_filters(socket.assigns.current_user, venture_code)
     forecast = Analytics.forecast(filters)
     rules = Operations.list_crop_rules()
 
     assign(socket,
       selected_venture: venture_code,
-      ventures: Operations.list_ventures(),
+      ventures: visible_ventures(socket.assigns.current_user),
       forecast: forecast,
       peak_week: peak_week_details(forecast.weeks, rules)
     )
@@ -313,8 +314,14 @@ defmodule ChasingSunWeb.ForecastLive.Index do
     if selected_venture == venture_code, do: "filter-tab filter-tab-active", else: "filter-tab"
   end
 
-  defp filters_for("all"), do: %{}
-  defp filters_for(venture_code), do: %{venture_code: venture_code}
+  defp visible_ventures(user) do
+    user
+    |> Scope.operations_filters()
+    |> Operations.list_greenhouses()
+    |> Enum.map(& &1.venture)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.name)
+  end
 
   defp total_expected(weeks), do: Enum.reduce(weeks, 0.0, &(&1.expected_output + &2))
 

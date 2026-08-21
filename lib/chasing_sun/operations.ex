@@ -120,6 +120,7 @@ defmodule ChasingSun.Operations do
     greenhouse_query
     |> maybe_filter_venture(venture_code)
     |> maybe_filter_venture_codes(Map.get(filters, :venture_codes))
+    |> maybe_filter_greenhouse_ids(Map.get(filters, :greenhouse_ids))
     |> Repo.all()
   end
 
@@ -266,6 +267,7 @@ defmodule ChasingSun.Operations do
     query
     |> maybe_filter_joined_venture(venture_code)
     |> maybe_filter_joined_venture_codes(Map.get(filters, :venture_codes))
+    |> maybe_filter_joined_greenhouse_ids(Map.get(filters, :greenhouse_ids))
     |> Repo.all()
     |> Repo.preload(greenhouse: :venture)
     |> sort_recommendations_by_urgency()
@@ -330,6 +332,7 @@ defmodule ChasingSun.Operations do
     query
     |> maybe_filter_notification_venture(venture_code)
     |> maybe_filter_notification_venture_codes(Map.get(filters, :venture_codes))
+    |> maybe_filter_notification_greenhouse_ids(Map.get(filters, :greenhouse_ids))
     |> Repo.all()
     |> Repo.preload(greenhouse: :venture)
   end
@@ -993,12 +996,24 @@ defmodule ChasingSun.Operations do
 
   defp maybe_filter_venture_codes(query, _codes), do: query
 
+  defp maybe_filter_greenhouse_ids(query, ids) when is_list(ids) and ids != [] do
+    from greenhouse in query, where: greenhouse.id in ^ids
+  end
+
+  defp maybe_filter_greenhouse_ids(query, _ids), do: query
+
   defp maybe_filter_joined_venture_codes(query, codes) when is_list(codes) and codes != [] do
     codes = Enum.map(codes, &String.downcase/1)
     from [_source, _greenhouse, venture] in query, where: venture.code in ^codes
   end
 
   defp maybe_filter_joined_venture_codes(query, _codes), do: query
+
+  defp maybe_filter_joined_greenhouse_ids(query, ids) when is_list(ids) and ids != [] do
+    from [_source, greenhouse, _venture] in query, where: greenhouse.id in ^ids
+  end
+
+  defp maybe_filter_joined_greenhouse_ids(query, _ids), do: query
 
   defp maybe_filter_notification_venture(query, code) when code in [nil, "", "all"], do: query
 
@@ -1018,6 +1033,13 @@ defmodule ChasingSun.Operations do
   end
 
   defp maybe_filter_notification_venture_codes(query, _codes), do: query
+
+  defp maybe_filter_notification_greenhouse_ids(query, ids) when is_list(ids) and ids != [] do
+    from [notification, _greenhouse, _venture] in query,
+      where: notification.greenhouse_id in ^ids
+  end
+
+  defp maybe_filter_notification_greenhouse_ids(query, _ids), do: query
 
   defp maybe_persist_cycle(multi, greenhouse_key, cycle_attrs, rules) do
     if meaningful_cycle_attrs?(cycle_attrs) do

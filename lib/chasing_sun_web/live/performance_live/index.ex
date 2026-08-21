@@ -2,6 +2,7 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
   use ChasingSunWeb, :live_view
 
   alias ChasingSun.Analytics
+  alias ChasingSun.Accounts.Scope
   alias ChasingSun.Operations
 
   @impl true
@@ -396,15 +397,29 @@ defmodule ChasingSunWeb.PerformanceLive.Index do
   end
 
   defp load_report(socket, venture_code, filters) do
-    report = Analytics.performance_report(Map.put(filters, "venture_code", venture_code))
+    scoped_filters =
+      socket.assigns.current_user
+      |> Scope.operations_filters(venture_code)
+      |> Map.merge(filters)
+
+    report = Analytics.performance_report(scoped_filters)
 
     assign(socket,
       selected_venture: venture_code,
-      ventures: Operations.list_ventures(),
+      ventures: visible_ventures(socket.assigns.current_user),
       report: report,
       report_filters: filter_values(report.filters),
       filter_form: filter_form(report.filters)
     )
+  end
+
+  defp visible_ventures(user) do
+    user
+    |> Scope.operations_filters()
+    |> Operations.list_greenhouses()
+    |> Enum.map(& &1.venture)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.name)
   end
 
   defp default_filters do

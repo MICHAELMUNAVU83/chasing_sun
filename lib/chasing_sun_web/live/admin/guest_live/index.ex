@@ -11,6 +11,7 @@ defmodule ChasingSunWeb.Admin.GuestLive.Index do
      socket
      |> assign(:page_title, "Guest Accounts")
      |> assign(:ventures, Operations.list_ventures())
+     |> assign(:greenhouses, Operations.list_greenhouses())
      |> assign(:current_guest, nil)
      |> assign(:form_modal_open, false)
      |> load_guests()
@@ -36,6 +37,10 @@ defmodule ChasingSunWeb.Admin.GuestLive.Index do
      |> assign(:selected_pages, MapSet.new(guest.allowed_pages || []))
      |> assign(:selected_sections, MapSet.new(guest.allowed_sections || []))
      |> assign(:selected_ventures, MapSet.new(guest.allowed_venture_codes || []))
+     |> assign(
+       :selected_greenhouses,
+       MapSet.new(Enum.map(guest.allowed_greenhouse_ids || [], &to_string/1))
+     )
      |> assign(:guest_form, to_form(Accounts.change_guest_user(guest), as: :guest))}
   end
 
@@ -255,10 +260,23 @@ defmodule ChasingSunWeb.Admin.GuestLive.Index do
 
             <.toggle_group
               title="Ventures"
-              hint="Leave all unticked to show every venture, or pick specific ones."
+              hint="Leave unticked for all ventures, or select the ventures this guest may see."
               field="allowed_venture_codes"
               options={Enum.map(@ventures, &%{key: &1.code, label: &1.name})}
               selected={@selected_ventures}
+            />
+
+            <.toggle_group
+              title="Specific greenhouses"
+              hint="Optional. When selected, these override the venture choices above."
+              field="allowed_greenhouse_ids"
+              options={
+                Enum.map(
+                  @greenhouses,
+                  &%{key: to_string(&1.id), label: "#{&1.name} · #{&1.venture.name}"}
+                )
+              }
+              selected={@selected_greenhouses}
             />
 
             <div class="flex items-center justify-between gap-4">
@@ -317,6 +335,7 @@ defmodule ChasingSunWeb.Admin.GuestLive.Index do
       selected_pages: MapSet.new(),
       selected_sections: MapSet.new(Scope.guest_section_keys()),
       selected_ventures: MapSet.new(),
+      selected_greenhouses: MapSet.new(),
       guest_form: to_form(Accounts.change_guest_user(%User{}), as: :guest)
     )
   end
@@ -326,18 +345,22 @@ defmodule ChasingSunWeb.Admin.GuestLive.Index do
     |> assign(:selected_pages, MapSet.new(Map.get(params, "allowed_pages", [])))
     |> assign(:selected_sections, MapSet.new(Map.get(params, "allowed_sections", [])))
     |> assign(:selected_ventures, MapSet.new(Map.get(params, "allowed_venture_codes", [])))
+    |> assign(:selected_greenhouses, MapSet.new(Map.get(params, "allowed_greenhouse_ids", [])))
   end
 
   # Drop the blank sentinel value emitted by the hidden inputs so empty groups
   # become an empty list rather than [""].
   defp normalize(params) do
-    Enum.reduce(["allowed_pages", "allowed_sections", "allowed_venture_codes"], params, fn key,
-                                                                                           acc ->
-      case Map.get(acc, key) do
-        values when is_list(values) -> Map.put(acc, key, Enum.reject(values, &(&1 == "")))
-        _ -> acc
+    Enum.reduce(
+      ["allowed_pages", "allowed_sections", "allowed_venture_codes", "allowed_greenhouse_ids"],
+      params,
+      fn key, acc ->
+        case Map.get(acc, key) do
+          values when is_list(values) -> Map.put(acc, key, Enum.reject(values, &(&1 == "")))
+          _ -> acc
+        end
       end
-    end)
+    )
   end
 
   defp section_summary(%{allowed_sections: []}), do: "None"
