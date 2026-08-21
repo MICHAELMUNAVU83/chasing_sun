@@ -268,7 +268,7 @@ defmodule ChasingSunWeb.ForecastLive.Index do
                 :for={notification <- @forecast.notifications}
                 class="rounded-[1.5rem] border border-[var(--line)] p-4"
               >
-                <p class="font-semibold text-[var(--ink)]">{notification.greenhouse.name}</p>
+                <p class="font-semibold text-[var(--ink)]">{notification_scope_name(notification)}</p>
                 <p class="mt-1 text-sm text-[var(--muted)]">{notification.message}</p>
                 <p class="mt-3 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                   {format_date(notification.notify_on)}
@@ -349,6 +349,9 @@ defmodule ChasingSunWeb.ForecastLive.Index do
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
+
+  defp notification_scope_name(%{greenhouse: %{name: name}}) when is_binary(name), do: name
+  defp notification_scope_name(_notification), do: "Farm-wide"
 
   defp peak_week_details([], _rules), do: nil
 
