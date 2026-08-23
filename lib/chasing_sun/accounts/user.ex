@@ -6,7 +6,7 @@ defmodule ChasingSun.Accounts.User do
     field :email, :string
 
     field :role, Ecto.Enum,
-      values: [:admin, :operator, :viewer, :guest, :accountant, :executive],
+      values: [:admin, :operator, :viewer, :guest, :accountant, :executive, :venture_manager],
       default: :viewer
 
     field :password, :string, virtual: true, redact: true
@@ -55,6 +55,14 @@ defmodule ChasingSun.Accounts.User do
     user
     |> cast(attrs, [:role])
     |> validate_role()
+  end
+
+  @doc """
+  Restricts which venture codes a non-guest account (e.g. `:venture_manager`)
+  may see and act on. Empty list means unrestricted.
+  """
+  def venture_scope_changeset(user, attrs) do
+    cast(user, attrs, [:allowed_venture_codes])
   end
 
   @doc """

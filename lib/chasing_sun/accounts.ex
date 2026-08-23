@@ -86,6 +86,16 @@ defmodule ChasingSun.Accounts do
     |> Repo.update()
   end
 
+  @doc """
+  Restricts a non-guest account (e.g. `:venture_manager`) to the given
+  venture codes. Pass `[]` to lift the restriction.
+  """
+  def update_venture_scope(%User{} = user, venture_codes) do
+    user
+    |> User.venture_scope_changeset(%{allowed_venture_codes: venture_codes})
+    |> Repo.update()
+  end
+
   ## Guest account management (admin)
 
   @doc """

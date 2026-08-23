@@ -41,6 +41,21 @@ defmodule ChasingSun.Accounts.Scope do
   def permissions(:executive),
     do: [:view_finance_dashboard, :view_documents, :bypass_document_visibility]
 
+  @doc """
+  Operations-only manager, locked to their assigned venture codes via
+  `visible_venture_codes/1`. Finance and Documents are intentionally excluded
+  until those records carry a venture scope of their own — see AUTH.md.
+  """
+  def permissions(:venture_manager),
+    do: [
+      :view_dashboard,
+      :view_operations,
+      :manage_greenhouses,
+      :manage_harvest,
+      :manage_farm_visits,
+      :manage_agronomic_visits
+    ]
+
   def permissions(_role), do: []
 
   def label(%User{role: role}) when is_atom(role),
@@ -93,8 +108,8 @@ defmodule ChasingSun.Accounts.Scope do
   @doc """
   The venture codes a user is limited to, or `nil` for no restriction.
   """
-  def visible_venture_codes(%User{role: :guest, allowed_venture_codes: codes})
-      when is_list(codes) and codes != [],
+  def visible_venture_codes(%User{role: role, allowed_venture_codes: codes})
+      when role in [:guest, :venture_manager] and is_list(codes) and codes != [],
       do: codes
 
   def visible_venture_codes(%User{}), do: nil
