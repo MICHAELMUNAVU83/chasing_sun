@@ -1,12 +1,13 @@
 defmodule ChasingSunWeb.AgronomicReportDownloadController do
   use ChasingSunWeb, :controller
 
+  alias ChasingSun.Accounts.Scope
   alias ChasingSun.Operations
 
   def show(conn, %{"id" => id}) do
     visit = Operations.get_agronomic_visit!(id)
 
-    if ChasingSunWeb.UserAuth.can?(conn.assigns.current_user, :view_operations) do
+    if Scope.page_allowed?(conn.assigns.current_user, "agronomy") do
       path = Path.join(Operations.agronomic_report_upload_root(), visit.report_file_url)
 
       conn

@@ -65,7 +65,12 @@ defmodule ChasingSun.Accounts.Scope do
 
   @guest_pages [
     %{key: "forecast", label: "Forecast"},
-    %{key: "recommendations", label: "Recommendations"}
+    %{key: "recommendations", label: "Recommendations"},
+    %{key: "greenhouses", label: "Greenhouses"},
+    %{key: "harvest", label: "Harvest records"},
+    %{key: "farm_visits", label: "Farm visits"},
+    %{key: "agronomy", label: "Agronomic visits"},
+    %{key: "performance", label: "Performance"}
   ]
 
   @guest_sections [

@@ -1,6 +1,7 @@
 defmodule ChasingSunWeb.GreenhouseLive.Show do
   use ChasingSunWeb, :live_view
 
+  alias ChasingSun.Accounts.Scope
   alias ChasingSun.Operations
   alias ChasingSun.Operations.CropPlanner
 
@@ -121,7 +122,10 @@ defmodule ChasingSunWeb.GreenhouseLive.Show do
               </div>
 
               <button
-                :if={@cycle && @cycle.status_cache == :harvesting}
+                :if={
+                  @cycle && @cycle.status_cache == :harvesting &&
+                    ChasingSunWeb.UserAuth.can?(@current_user, :manage_greenhouses)
+                }
                 type="button"
                 phx-click="terminate_production"
                 data-confirm="Stop production now and start soil recovery for this greenhouse?"
@@ -221,6 +225,27 @@ defmodule ChasingSunWeb.GreenhouseLive.Show do
 
   defp load_greenhouse(socket) do
     greenhouse = Operations.get_greenhouse!(socket.assigns.greenhouse_id)
+
+    if greenhouse_visible?(socket.assigns.current_user, greenhouse) do
+      assign_greenhouse(socket, greenhouse)
+    else
+      socket
+      |> put_flash(:error, "Your account does not have access to that greenhouse.")
+      |> push_navigate(to: ~p"/greenhouses")
+    end
+  end
+
+  # Guests and venture managers are limited to their assigned greenhouses, so a
+  # direct URL must not reveal a unit outside that scope.
+  defp greenhouse_visible?(user, greenhouse) do
+    case Scope.operations_filters(user) do
+      %{greenhouse_ids: ids} -> greenhouse.id in ids
+      %{venture_codes: codes} -> greenhouse.venture.code in codes
+      _filters -> true
+    end
+  end
+
+  defp assign_greenhouse(socket, greenhouse) do
     cycle = Operations.current_cycle(greenhouse)
 
     expected_output =

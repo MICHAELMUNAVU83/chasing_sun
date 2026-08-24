@@ -1,6 +1,7 @@
 defmodule ChasingSunWeb.FarmVisitLive.Index do
   use ChasingSunWeb, :live_view
 
+  alias ChasingSun.Accounts.Scope
   alias ChasingSun.Operations
   alias ChasingSun.Operations.{FarmVisitGreenhouseStatus, FarmVisitReport}
 
@@ -448,7 +449,8 @@ defmodule ChasingSunWeb.FarmVisitLive.Index do
   end
 
   defp load_greenhouses(socket) do
-    assign(socket, :greenhouses, Operations.list_greenhouses())
+    filters = Scope.operations_filters(socket.assigns.current_user)
+    assign(socket, :greenhouses, Operations.list_greenhouses(filters))
   end
 
   defp load_reports(socket) do

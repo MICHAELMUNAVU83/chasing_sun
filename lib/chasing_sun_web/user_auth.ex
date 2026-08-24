@@ -357,6 +357,12 @@ defmodule ChasingSunWeb.UserAuth do
   defp page_key(ChasingSunWeb.DashboardLive.Index), do: "dashboard"
   defp page_key(ChasingSunWeb.ForecastLive.Index), do: "forecast"
   defp page_key(ChasingSunWeb.RecommendationLive.Index), do: "recommendations"
+  defp page_key(ChasingSunWeb.GreenhouseLive.Index), do: "greenhouses"
+  defp page_key(ChasingSunWeb.GreenhouseLive.Show), do: "greenhouses"
+  defp page_key(ChasingSunWeb.HarvestRecordLive.Index), do: "harvest"
+  defp page_key(ChasingSunWeb.FarmVisitLive.Index), do: "farm_visits"
+  defp page_key(ChasingSunWeb.AgronomicVisitLive.Index), do: "agronomy"
+  defp page_key(ChasingSunWeb.PerformanceLive.Index), do: "performance"
   defp page_key(_view), do: "operations"
 
   defp signed_in_path(_conn), do: ~p"/dashboard"

@@ -6,7 +6,7 @@ defmodule ChasingSunWeb.PerformanceExportController do
   alias ChasingSun.Analytics.PerformanceExport
 
   def show(conn, params) do
-    if Scope.page_allowed?(conn.assigns.current_user, "operations") do
+    if Scope.page_allowed?(conn.assigns.current_user, "performance") do
       filters =
         conn.assigns.current_user
         |> Scope.operations_filters(params["venture_code"])

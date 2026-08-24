@@ -90,6 +90,16 @@ defmodule ChasingSunWeb.Layouts do
   defp guest_navigation(current_user) do
     [
       %{title: "Recommendations", path: ~p"/recommendations", key: "recommendations"},
+      %{title: "Greenhouses", path: ~p"/greenhouses", key: "greenhouses"},
+      %{title: "Farm Visits", path: ~p"/farm-visits", label: "Visits", key: "farm_visits"},
+      %{
+        title: "Agronomic Visits",
+        path: ~p"/agronomic-visits",
+        label: "Agronomy",
+        key: "agronomy"
+      },
+      %{title: "Harvest Records", path: ~p"/harvest-records", label: "Harvest", key: "harvest"},
+      %{title: "Performance", path: ~p"/performance", key: "performance"},
       %{title: "Forecast", path: ~p"/forecast", key: "forecast"}
     ]
     |> Enum.filter(&ChasingSun.Accounts.Scope.page_allowed?(current_user, &1.key))

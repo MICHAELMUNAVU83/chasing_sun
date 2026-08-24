@@ -176,6 +176,7 @@ defmodule ChasingSunWeb.AgronomicVisitLive.Index do
           </p>
         </div>
         <button
+          :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_agronomic_visits)}
           type="button"
           phx-click="open_form_modal"
           class="bg-green-700 hover:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg"
@@ -215,6 +216,7 @@ defmodule ChasingSunWeb.AgronomicVisitLive.Index do
                 <td>{(visit.inserted_by_user && visit.inserted_by_user.email) || "-"}</td>
                 <td class="text-right">
                   <button
+                    :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_agronomic_visits)}
                     type="button"
                     phx-click="delete"
                     phx-value-id={visit.id}

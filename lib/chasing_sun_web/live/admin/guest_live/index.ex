@@ -116,8 +116,9 @@ defmodule ChasingSunWeb.Admin.GuestLive.Index do
 
           <p class="page-copy">
             Create read-only guest logins and choose exactly what each one sees — which
-            dashboard sections, which extra pages, and which ventures. Guests never see
-            revenue, performance, or management pages.
+            dashboard sections, which extra pages, and which ventures. Guests can never
+            create, edit, or delete anything, and never reach Finance, Documents, or the
+            admin pages.
           </p>
 
           <div class="mt-8 grid gap-4 md:grid-cols-2">

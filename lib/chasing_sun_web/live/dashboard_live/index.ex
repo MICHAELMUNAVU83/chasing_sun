@@ -613,10 +613,10 @@ defmodule ChasingSunWeb.DashboardLive.Index do
 
   defp default_collapsed_sections do
     %{
-      "charts" => true,
-      "quick_view" => true,
-      "notifications" => true,
-      "projections" => true
+      "charts" => false,
+      "quick_view" => false,
+      "notifications" => false,
+      "projections" => false
     }
   end
 
