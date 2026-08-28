@@ -46,6 +46,7 @@ defmodule ChasingSunWeb.Router do
       live "/harvest-records", HarvestRecordLive.Index, :index
       live "/performance", PerformanceLive.Index, :index
       live "/forecast", ForecastLive.Index, :index
+      live "/farm-inputs", FarmInputLive.Index, :index
     end
   end
 

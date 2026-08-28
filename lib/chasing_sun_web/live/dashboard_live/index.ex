@@ -503,7 +503,8 @@ defmodule ChasingSunWeb.DashboardLive.Index do
     selected_greenhouse_id =
       ensure_selected_greenhouse_id(socket.assigns[:selected_greenhouse_id], greenhouse_rows)
 
-    assign(socket,
+    socket
+    |> assign(
       selected_venture: venture_code,
       ventures: ventures,
       snapshot: snapshot,
