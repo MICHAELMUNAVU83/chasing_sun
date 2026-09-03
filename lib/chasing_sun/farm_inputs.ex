@@ -12,6 +12,36 @@ defmodule ChasingSun.FarmInputs do
     )
   end
 
+  def list_purchase_lines(filters \\ %{}) do
+    query =
+      from line in PurchaseLine,
+        join: purchase in assoc(line, :purchase),
+        join: input in assoc(line, :farm_input),
+        preload: [purchase: purchase, farm_input: input],
+        order_by: [desc: purchase.purchased_on, desc: purchase.inserted_at, desc: line.id]
+
+    query
+    |> filter_purchase_lines(filters)
+    |> Repo.all()
+  end
+
+  def delete_purchase_line(id) do
+    Repo.transaction(fn ->
+      line = Repo.get!(PurchaseLine, id)
+      purchase_id = line.purchase_id
+      Repo.delete!(line)
+
+      if Repo.aggregate(
+           from(item in PurchaseLine, where: item.purchase_id == ^purchase_id),
+           :count
+         ) == 0 do
+        Repo.delete_all(from purchase in Purchase, where: purchase.id == ^purchase_id)
+      end
+
+      line
+    end)
+  end
+
   def change_input(input \\ %Input{}, attrs \\ %{}), do: Input.changeset(input, attrs)
   def get_input!(id), do: Repo.get!(Input, id)
   def create_input(attrs), do: %Input{} |> Input.changeset(attrs) |> Repo.insert()
@@ -90,6 +120,34 @@ defmodule ChasingSun.FarmInputs do
 
   defp normalize_line(%{farm_input_id: id, quantity: quantity, unit_price: price}) do
     %{farm_input_id: id, quantity: decimal(quantity), unit_price: decimal(price)}
+  end
+
+  defp filter_purchase_lines(query, filters) do
+    Enum.reduce(filters, query, fn
+      {"from", value}, query when value != "" ->
+        case Date.from_iso8601(value) do
+          {:ok, date} -> where(query, [line, purchase, input], purchase.purchased_on >= ^date)
+          _ -> query
+        end
+
+      {"to", value}, query when value != "" ->
+        case Date.from_iso8601(value) do
+          {:ok, date} -> where(query, [line, purchase, input], purchase.purchased_on <= ^date)
+          _ -> query
+        end
+
+      {"input_id", value}, query when value != "" ->
+        case Integer.parse(to_string(value)) do
+          {id, ""} -> where(query, [line, purchase, input], input.id == ^id)
+          _ -> query
+        end
+
+      {"farm", value}, query when value != "" ->
+        where(query, [line, purchase, input], ilike(purchase.farm, ^"%#{value}%"))
+
+      _, query ->
+        query
+    end)
   end
 
   defp decimal(%Decimal{} = value), do: value
