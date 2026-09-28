@@ -65,6 +65,25 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
     {:noreply, socket}
   end
 
+  def handle_event(
+        "validate",
+        %{"harvest" => params, "_target" => ["harvest", "greenhouse_id"]},
+        socket
+      ) do
+    params =
+      Map.put(
+        params,
+        "plant_variety",
+        variety_for_greenhouse_id(socket, params["greenhouse_id"])
+      )
+
+    {:noreply, assign(socket, :harvest_form, to_form(params, as: :harvest))}
+  end
+
+  def handle_event("validate", %{"harvest" => params}, socket) do
+    {:noreply, assign(socket, :harvest_form, to_form(params, as: :harvest))}
+  end
+
   def handle_event("cancel_pickup_note_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :pickup_note, ref)}
   end
@@ -170,6 +189,13 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               accent="yellow"
             />
             <.summary_card
+              :if={not @hide_prices?}
+              title="Sales this week"
+              value={format_revenue(@current_week_revenue)}
+              hint="Yield × recorded or crop-rule price"
+              accent="ink"
+            />
+            <.summary_card
               title="Average weekly actual"
               value={format_total(@average_weekly_yield)}
               hint={weekly_average_hint(@weeks_recorded)}
@@ -219,6 +245,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <th>Grade</th>
                 <th>Actual yield</th>
                 <th :if={not @hide_prices?}>Price / kg</th>
+                <th :if={not @hide_prices?}>Revenue</th>
                 <th>Notes</th>
                 <th></th>
               </tr>
@@ -244,6 +271,9 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 <td :if={not @hide_prices?} class="text-[var(--muted)]">
                   {format_price(record.price_per_kg)}
                 </td>
+                <td :if={not @hide_prices?} class="font-semibold text-[var(--ink)]">
+                  {format_revenue(record_revenue(record, @crop_rule_prices))}
+                </td>
                 <td class="max-w-xs text-[var(--muted)]">{blank_fallback(record.notes)}</td>
                 <td class="text-right">
                   <button
@@ -259,7 +289,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               </tr>
               <tr :if={Enum.empty?(@records)}>
                 <td
-                  colspan={if @hide_prices?, do: 8, else: 9}
+                  colspan={if @hide_prices?, do: 8, else: 10}
                   class="text-center text-sm text-[var(--muted)]"
                 >
                   No harvest records found.
@@ -359,7 +389,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
             </div>
           </div> --%>
 
-          <.form for={@harvest_form} phx-submit="save" class="space-y-5">
+          <.form for={@harvest_form} phx-change="validate" phx-submit="save" class="space-y-5">
             <.input
               field={@harvest_form[:greenhouse_id]}
               type="select"
@@ -367,6 +397,15 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
               options={greenhouse_options(@form_greenhouses)}
               required
             />
+            <.input
+              field={@harvest_form[:plant_variety]}
+              type="text"
+              label="Plant variety"
+              placeholder="Variety for this greenhouse"
+            />
+            <p class="text-xs text-[var(--muted)]">
+              Saving updates the variety on this greenhouse’s active crop cycle.
+            </p>
             <.input
               field={@harvest_form[:week_ending_on]}
               type="date"
@@ -420,6 +459,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   defp load_records(socket, venture_code) do
     filters = Scope.operations_filters(socket.assigns.current_user, venture_code)
     records = Harvesting.list_harvest_records(filters)
+    crop_rule_prices = Operations.list_crop_rules() |> Map.new(&{&1.crop_type, &1.price_per_unit})
     {week_start, week_end} = current_week_range()
 
     weeks_recorded = records |> Enum.map(& &1.week_ending_on) |> Enum.uniq() |> length()
@@ -432,6 +472,9 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
       current_week_start: week_start,
       current_week_end: week_end,
       current_week_yield: total_yield(records_in_range(records, week_start, week_end)),
+      current_week_revenue:
+        total_revenue(records_in_range(records, week_start, week_end), crop_rule_prices),
+      crop_rule_prices: crop_rule_prices,
       weeks_recorded: weeks_recorded,
       average_weekly_yield: average_weekly_yield(records, weeks_recorded),
       form_greenhouses: Operations.list_greenhouses(filters)
@@ -468,6 +511,20 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
   defp average_weekly_yield(_records, 0), do: 0.0
   defp average_weekly_yield(records, weeks), do: total_yield(records) / weeks
 
+  defp total_revenue(records, prices) do
+    Enum.reduce(records, Decimal.new(0), &Decimal.add(record_revenue(&1, prices), &2))
+  end
+
+  defp record_revenue(record, prices) do
+    crop_type = record.crop_cycle && record.crop_cycle.crop_type
+    price = record.price_per_kg || Map.get(prices, crop_type) || 0.0
+
+    Decimal.mult(
+      Decimal.from_float((record.actual_yield || 0.0) * 1.0),
+      Decimal.from_float(price * 1.0)
+    )
+  end
+
   defp weekly_average_hint(0), do: "No harvest weeks recorded yet"
   defp weekly_average_hint(1), do: "Across 1 recorded week"
   defp weekly_average_hint(weeks), do: "Across #{weeks} recorded weeks"
@@ -488,6 +545,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
             "week_ending_on" => Date.utc_today() |> Date.to_iso8601(),
             "actual_yield" => "",
             "price_per_kg" => "",
+            "plant_variety" => variety_for_greenhouse_id(socket, default_greenhouse_id),
             "grade" => "",
             "notes" => ""
           },
@@ -503,6 +561,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
         "week_ending_on" => Date.to_iso8601(record.week_ending_on),
         "actual_yield" => record.actual_yield,
         "price_per_kg" => record.price_per_kg || "",
+        "plant_variety" => record_variety(record),
         "grade" => record.grade || "",
         "notes" => record.notes || ""
       },
@@ -540,6 +599,30 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
     |> drop_price_for_guest(actor)
   end
 
+  defp record_variety(record) do
+    current_cycle = Operations.current_cycle(record.greenhouse)
+
+    (current_cycle && current_cycle.variety) || (record.crop_cycle && record.crop_cycle.variety) ||
+      ""
+  end
+
+  defp variety_for_greenhouse_id(_socket, ""), do: ""
+
+  defp variety_for_greenhouse_id(socket, greenhouse_id) do
+    socket.assigns.form_greenhouses
+    |> Enum.find(&(to_string(&1.id) == to_string(greenhouse_id)))
+    |> case do
+      nil ->
+        ""
+
+      greenhouse ->
+        case Operations.current_cycle(greenhouse) do
+          nil -> ""
+          cycle -> cycle.variety || ""
+        end
+    end
+  end
+
   # Guests never see prices, so ignore any price they might still post.
   defp drop_price_for_guest(attrs, actor) do
     if Scope.guest?(actor), do: Map.delete(attrs, "price_per_kg"), else: attrs
@@ -569,6 +652,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
 
   defp format_price(nil), do: "Crop rule"
   defp format_price(value), do: ChasingSunWeb.FormatHelpers.format_currency_exact(value)
+  defp format_revenue(value), do: ChasingSunWeb.FormatHelpers.format_currency(value)
 
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
   defp format_date(_date), do: "-"
@@ -676,6 +760,7 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
       "week_ending_on" => form[:week_ending_on].value || "",
       "actual_yield" => form[:actual_yield].value || "",
       "price_per_kg" => form[:price_per_kg].value || "",
+      "plant_variety" => form[:plant_variety].value || "",
       "grade" => form[:grade].value || "",
       "notes" => form[:notes].value || ""
     }

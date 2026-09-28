@@ -11,6 +11,10 @@ defmodule ChasingSun.Harvesting do
   alias ChasingSun.Operations.CropCycle
   alias ChasingSun.Repo
 
+  @harvest_topic "harvest:updates"
+
+  def harvest_topic, do: @harvest_topic
+
   def list_harvest_records(filters \\ %{}) do
     venture_code = Map.get(filters, :venture_code) || Map.get(filters, "venture_code")
     week_ending_on = Map.get(filters, :week_ending_on) || Map.get(filters, "week_ending_on")
@@ -74,13 +78,19 @@ defmodule ChasingSun.Harvesting do
 
     Multi.new()
     |> Multi.insert(:record, HarvestRecord.changeset(%HarvestRecord{}, params))
+    |> maybe_update_variety(params)
     |> Multi.run(:audit, fn repo, %{record: record} ->
       insert_audit(repo, actor, record, "harvest_record_inserted")
     end)
     |> Repo.transaction()
     |> case do
-      {:ok, %{record: record}} -> {:ok, Repo.preload(record, [:crop_cycle, greenhouse: :venture])}
-      {:error, :record, changeset, _} -> {:error, changeset}
+      {:ok, %{record: record}} ->
+        record = Repo.preload(record, [:crop_cycle, greenhouse: :venture])
+        broadcast_harvest_changed(record)
+        {:ok, record}
+
+      {:error, _step, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -106,6 +116,7 @@ defmodule ChasingSun.Harvesting do
         %HarvestRecord{} = record -> repo.update(changeset |> Map.put(:data, record))
       end
     end)
+    |> maybe_update_variety(params)
     |> Multi.run(:audit, fn repo, %{record: record} ->
       insert_audit(
         repo,
@@ -116,8 +127,13 @@ defmodule ChasingSun.Harvesting do
     end)
     |> Repo.transaction()
     |> case do
-      {:ok, %{record: record}} -> {:ok, Repo.preload(record, [:crop_cycle, greenhouse: :venture])}
-      {:error, :record, changeset, _} -> {:error, changeset}
+      {:ok, %{record: record}} ->
+        record = Repo.preload(record, [:crop_cycle, greenhouse: :venture])
+        broadcast_harvest_changed(record)
+        {:ok, record}
+
+      {:error, _step, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -129,13 +145,18 @@ defmodule ChasingSun.Harvesting do
 
     Multi.new()
     |> Multi.update(:record, HarvestRecord.changeset(record, params))
+    |> maybe_update_variety(params)
     |> Multi.run(:audit, fn repo, %{record: updated_record} ->
       insert_audit(repo, actor, updated_record, "harvest_record_updated")
     end)
     |> Repo.transaction()
     |> case do
-      {:ok, %{record: updated_record}} -> {:ok, updated_record}
-      {:error, :record, changeset, _} -> {:error, changeset}
+      {:ok, %{record: updated_record}} ->
+        broadcast_harvest_changed(updated_record)
+        {:ok, updated_record}
+
+      {:error, _step, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -252,6 +273,42 @@ defmodule ChasingSun.Harvesting do
   defp same_greenhouse?(left, right), do: to_string(left) == to_string(right)
 
   defp present?(value), do: not is_nil(value) and value != ""
+
+  defp maybe_update_variety(multi, params) do
+    case Map.fetch(params, "plant_variety") do
+      :error ->
+        multi
+
+      {:ok, variety} ->
+        Multi.run(multi, :crop_cycle_variety, fn repo, %{record: record} ->
+          cycle =
+            repo.one(
+              from c in CropCycle,
+                where: c.greenhouse_id == ^record.greenhouse_id and is_nil(c.archived_at),
+                order_by: [desc: c.inserted_at],
+                limit: 1
+            )
+
+          case cycle do
+            nil -> {:ok, nil}
+            cycle -> repo.update(CropCycle.changeset(cycle, %{variety: blank_to_nil(variety)}))
+          end
+        end)
+    end
+  end
+
+  defp blank_to_nil(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp blank_to_nil(value), do: value
+
+  defp broadcast_harvest_changed(record) do
+    Phoenix.PubSub.broadcast(ChasingSun.PubSub, @harvest_topic, {:harvest_changed, record})
+  end
 
   defp insert_audit(repo, %User{id: actor_user_id}, record, action) do
     %AuditEvent{}

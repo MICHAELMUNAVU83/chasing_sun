@@ -2,11 +2,13 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
   use ChasingSunWeb, :live_view
 
   alias ChasingSun.Finance
+  alias ChasingSun.Harvesting
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(ChasingSun.PubSub, Finance.finance_topic())
+      Phoenix.PubSub.subscribe(ChasingSun.PubSub, Harvesting.harvest_topic())
     end
 
     Finance.sync_overdue_invoices!()
@@ -22,10 +24,18 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
     {:noreply, load_totals(socket)}
   end
 
+  def handle_info({:harvest_changed, _record}, socket) do
+    {:noreply, load_totals(socket)}
+  end
+
   defp load_totals(socket) do
+    week_start = Date.beginning_of_week(Date.utc_today())
+
     assign(socket,
       totals: Finance.dashboard_totals(),
-      trend: Finance.trend_last_weeks()
+      trend: Finance.trend_last_weeks(),
+      greenhouse_revenue:
+        Finance.harvest_revenue_by_greenhouse(week_start, Date.end_of_week(week_start))
     )
   end
 
@@ -104,6 +114,34 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
               data-chart={Jason.encode!(month_split_chart(@totals))}
             />
           </div>
+        </div>
+      </div>
+
+      <div class="panel-shell">
+        <p class="eyebrow">Harvest sales</p>
+        <h2 class="section-heading">Revenue per greenhouse this week</h2>
+        <div class="mt-6 overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Greenhouse</th>
+                <th>Harvested</th>
+                <th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={row <- @greenhouse_revenue}>
+                <td>{row.greenhouse_name}</td>
+                <td>{ChasingSunWeb.FormatHelpers.format_exact(row.yield)} kg</td>
+                <td class="font-semibold text-[var(--ink)]">{format_currency(row.revenue)}</td>
+              </tr>
+              <tr :if={Enum.empty?(@greenhouse_revenue)}>
+                <td colspan="3" class="text-center text-sm text-zinc-400">
+                  No harvest sales recorded this week.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 

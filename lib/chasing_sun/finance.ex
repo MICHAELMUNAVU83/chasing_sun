@@ -6,7 +6,9 @@ defmodule ChasingSun.Finance do
   alias Ecto.Multi
   alias ChasingSun.Repo
   alias ChasingSun.Accounts.User
+  alias ChasingSun.Harvesting.HarvestRecord
   alias ChasingSun.Operations.AuditEvent
+  alias ChasingSun.Operations.CropRule
 
   alias ChasingSun.Finance.{
     Client,
@@ -142,9 +144,16 @@ defmodule ChasingSun.Finance do
       expense: %{horticulture: Decimal.new(0), commodity: Decimal.new(0)}
     }
 
-    Enum.reduce(rows, base, fn {type, business_line, total}, acc ->
-      put_in(acc, [type, business_line], total || Decimal.new(0))
-    end)
+    totals =
+      Enum.reduce(rows, base, fn {type, business_line, total}, acc ->
+        put_in(acc, [type, business_line], total || Decimal.new(0))
+      end)
+
+    update_in(
+      totals,
+      [:revenue, :horticulture],
+      &Decimal.add(&1, harvest_revenue_for_range(from_date, to_date))
+    )
   end
 
   def trend_last_weeks(weeks \\ 12, reference_date \\ Date.utc_today()) do
@@ -168,6 +177,7 @@ defmodule ChasingSun.Finance do
         |> Map.put_new(week_start, %{revenue: Decimal.new(0), expense: Decimal.new(0)})
         |> put_in([week_start, type], total || Decimal.new(0))
       end)
+      |> add_harvest_revenue_by_week(first_week_start, reference_date)
 
     for offset <- (weeks - 1)..0 do
       week_start = Date.add(Date.beginning_of_week(reference_date), -7 * offset)
@@ -178,6 +188,71 @@ defmodule ChasingSun.Finance do
       %{week_start: week_start, revenue: totals.revenue, expense: totals.expense}
     end
   end
+
+  @doc "Returns harvest sales grouped by greenhouse for the requested date range."
+  def harvest_revenue_by_greenhouse(from_date, to_date) do
+    from_date
+    |> harvest_sales_rows(to_date)
+    |> Enum.group_by(&{&1.greenhouse_id, &1.greenhouse_name})
+    |> Enum.map(fn {{greenhouse_id, greenhouse_name}, rows} ->
+      %{
+        greenhouse_id: greenhouse_id,
+        greenhouse_name: greenhouse_name,
+        yield: Enum.reduce(rows, 0.0, &((&1.actual_yield || 0.0) + &2)),
+        revenue: Enum.reduce(rows, Decimal.new(0), &Decimal.add(sale_revenue(&1), &2))
+      }
+    end)
+    |> Enum.sort_by(&Decimal.to_float(&1.revenue), :desc)
+  end
+
+  @doc "Calculates the KES sale value for a harvest, using its recorded price or crop-rule price."
+  def sale_revenue(record) do
+    quantity = decimal_from_number(record.actual_yield)
+    price = decimal_from_number(record.price_per_kg || Map.get(record, :rule_price))
+    Decimal.mult(quantity, price)
+  end
+
+  defp harvest_revenue_for_range(from_date, to_date) do
+    from_date
+    |> harvest_sales_rows(to_date)
+    |> Enum.reduce(Decimal.new(0), &Decimal.add(sale_revenue(&1), &2))
+  end
+
+  defp add_harvest_revenue_by_week(totals_by_week, first_week_start, reference_date) do
+    first_week_start
+    |> harvest_sales_rows(reference_date)
+    |> Enum.reduce(totals_by_week, fn row, acc ->
+      week_start = Date.beginning_of_week(row.week_ending_on)
+
+      acc
+      |> Map.put_new(week_start, %{revenue: Decimal.new(0), expense: Decimal.new(0)})
+      |> update_in([week_start, :revenue], &Decimal.add(&1, sale_revenue(row)))
+    end)
+  end
+
+  defp harvest_sales_rows(from_date, to_date) do
+    Repo.all(
+      from h in HarvestRecord,
+        join: g in assoc(h, :greenhouse),
+        left_join: c in assoc(h, :crop_cycle),
+        left_join: r in CropRule,
+        on: r.crop_type == c.crop_type,
+        where: h.week_ending_on >= ^from_date and h.week_ending_on <= ^to_date,
+        select: %{
+          greenhouse_id: g.id,
+          greenhouse_name: g.name,
+          week_ending_on: h.week_ending_on,
+          actual_yield: h.actual_yield,
+          price_per_kg: h.price_per_kg,
+          rule_price: r.price_per_unit
+        }
+    )
+  end
+
+  defp decimal_from_number(nil), do: Decimal.new(0)
+  defp decimal_from_number(%Decimal{} = value), do: value
+  defp decimal_from_number(value) when is_integer(value), do: Decimal.new(value)
+  defp decimal_from_number(value) when is_float(value), do: Decimal.from_float(value)
 
   ## Invoices
 
