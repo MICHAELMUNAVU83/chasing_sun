@@ -13,10 +13,33 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
 
     Finance.sync_overdue_invoices!()
 
+    week_start = Date.beginning_of_week(Date.utc_today())
+
     {:ok,
      socket
      |> assign(:page_title, "Finance")
+     |> assign(:revenue_range, %{
+       "date_from" => Date.to_iso8601(week_start),
+       "date_to" => Date.to_iso8601(Date.end_of_week(week_start))
+     })
+     |> assign(:revenue_range_error, nil)
      |> load_totals()}
+  end
+
+  @impl true
+  def handle_event("calculate_greenhouse_revenue", %{"revenue_range" => params}, socket) do
+    case Finance.validate_harvest_revenue_range(params["date_from"], params["date_to"]) do
+      {:ok, from_date, to_date} ->
+        {:noreply,
+         assign(socket,
+           revenue_range: params,
+           revenue_range_error: nil,
+           greenhouse_revenue: Finance.harvest_revenue_by_greenhouse(from_date, to_date)
+         )}
+
+      {:error, message} ->
+        {:noreply, assign(socket, revenue_range: params, revenue_range_error: message)}
+    end
   end
 
   @impl true
@@ -29,14 +52,26 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
   end
 
   defp load_totals(socket) do
-    week_start = Date.beginning_of_week(Date.utc_today())
+    socket =
+      assign(socket,
+        totals: Finance.dashboard_totals(),
+        trend: Finance.trend_last_weeks()
+      )
 
-    assign(socket,
-      totals: Finance.dashboard_totals(),
-      trend: Finance.trend_last_weeks(),
-      greenhouse_revenue:
-        Finance.harvest_revenue_by_greenhouse(week_start, Date.end_of_week(week_start))
-    )
+    case Finance.validate_harvest_revenue_range(
+           socket.assigns.revenue_range["date_from"],
+           socket.assigns.revenue_range["date_to"]
+         ) do
+      {:ok, from_date, to_date} ->
+        assign(
+          socket,
+          :greenhouse_revenue,
+          Finance.harvest_revenue_by_greenhouse(from_date, to_date)
+        )
+
+      {:error, _message} ->
+        socket
+    end
   end
 
   @impl true
@@ -118,8 +153,36 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
       </div>
 
       <div class="panel-shell">
-        <p class="eyebrow">Harvest sales</p>
-        <h2 class="section-heading">Revenue per greenhouse this week</h2>
+        <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div>
+            <p class="eyebrow">Greenhouse revenue</p>
+            <h2 class="section-heading">Revenue from harvest records</h2>
+            <p class="mt-2 text-sm text-[var(--muted)]">
+              Calculated from harvested kilograms and the price per kg entered under Harvest.
+            </p>
+          </div>
+          <.form
+            :let={f}
+            for={to_form(@revenue_range, as: :revenue_range)}
+            phx-submit="calculate_greenhouse_revenue"
+            class="flex flex-wrap items-end gap-3"
+          >
+            <.input field={f[:date_from]} type="date" label="From" required />
+            <.input field={f[:date_to]} type="date" label="To" required />
+            <.button>Calculate revenue</.button>
+          </.form>
+        </div>
+        <p :if={@revenue_range_error} class="mt-3 text-sm font-medium text-rose-700">
+          {@revenue_range_error}
+        </p>
+        <div class="mt-6 rounded-[1.25rem] bg-[var(--surface-soft)] px-5 py-4">
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+            Total greenhouse revenue
+          </p>
+          <p class="mt-2 text-2xl font-semibold text-[var(--ink)]">
+            {format_currency(greenhouse_revenue_total(@greenhouse_revenue))}
+          </p>
+        </div>
         <div class="mt-6 overflow-x-auto">
           <table class="data-table">
             <thead>
@@ -137,7 +200,7 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
               </tr>
               <tr :if={Enum.empty?(@greenhouse_revenue)}>
                 <td colspan="3" class="text-center text-sm text-zinc-400">
-                  No harvest sales recorded this week.
+                  No harvest sales recorded in this period.
                 </td>
               </tr>
             </tbody>
@@ -215,6 +278,10 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
 
   defp get_total(totals, period, type, business_line) do
     get_in(totals, [period, type, business_line]) || Decimal.new(0)
+  end
+
+  defp greenhouse_revenue_total(rows) do
+    Enum.reduce(rows, Decimal.new(0), &Decimal.add(&1.revenue, &2))
   end
 
   defp trend_chart(trend) do

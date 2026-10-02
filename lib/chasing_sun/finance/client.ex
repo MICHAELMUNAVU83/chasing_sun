@@ -26,9 +26,14 @@ defmodule ChasingSun.Finance.Client do
 
   defp maybe_validate_email(changeset) do
     case get_change(changeset, :email) do
-      nil -> changeset
-      "" -> changeset
-      _ -> validate_format(changeset, :email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
+      nil ->
+        changeset
+
+      "" ->
+        changeset
+
+      _ ->
+        validate_format(changeset, :email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     end
   end
 end

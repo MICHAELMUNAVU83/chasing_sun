@@ -35,13 +35,44 @@ defmodule ChasingSunWeb.TransactionsLive.TransactionFormComponent do
     <div class="space-y-6">
       <h2 class="section-heading">New transaction</h2>
 
-      <.form for={@form} phx-target={@myself} phx-change="validate" phx-submit="save" class="space-y-5">
-        <.input field={@form[:type]} type="select" label="Type" options={enum_options(Transaction, :type)} prompt="Choose a type" required />
-        <.input field={@form[:business_line]} type="select" label="Business line" options={enum_options(Transaction, :business_line)} prompt="Choose a business line" required />
+      <.form
+        for={@form}
+        phx-target={@myself}
+        phx-change="validate"
+        phx-submit="save"
+        class="space-y-5"
+      >
+        <.input
+          field={@form[:type]}
+          type="select"
+          label="Type"
+          options={enum_options(Transaction, :type)}
+          prompt="Choose a type"
+          required
+        />
+        <.input
+          field={@form[:business_line]}
+          type="select"
+          label="Business line"
+          options={enum_options(Transaction, :business_line)}
+          prompt="Choose a business line"
+          required
+        />
         <.input field={@form[:amount]} type="number" step="any" label="Amount (KES)" required />
         <.input field={@form[:occurred_on]} type="date" label="Date" required />
-        <.input field={@form[:client_id]} type="select" label="Client" options={@clients} prompt="No client" />
-        <.input field={@form[:category]} type="text" label="Category" placeholder="e.g. seed_cost, transport, sale" />
+        <.input
+          field={@form[:client_id]}
+          type="select"
+          label="Client"
+          options={@clients}
+          prompt="No client"
+        />
+        <.input
+          field={@form[:category]}
+          type="text"
+          label="Category"
+          placeholder="e.g. seed_cost, transport, sale"
+        />
         <.input field={@form[:description]} type="text" label="Description" />
 
         <div class="flex items-center justify-end gap-3">

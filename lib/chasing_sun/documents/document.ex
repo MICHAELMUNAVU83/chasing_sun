@@ -6,6 +6,7 @@ defmodule ChasingSun.Documents.Document do
     field :department, Ecto.Enum, values: [:operations, :finance, :marketing, :other]
     field :title, :string
     field :file_url, :string
+
     field :visibility, Ecto.Enum,
       values: [:department_only, :leadership, :all_staff],
       default: :department_only

@@ -6,6 +6,8 @@ defmodule ChasingSun.Operations.OperationRecommendation do
     field :current_crop, :string
     field :next_crop, :string
     field :next_variety, :string
+    field :next_plant_count, :integer
+    field :manually_edited, :boolean, default: false
     field :recommendation_kind, :string, default: "rotation"
     field :note, :string, default: ""
     field :nursery_date, :date
@@ -29,6 +31,8 @@ defmodule ChasingSun.Operations.OperationRecommendation do
       :current_crop,
       :next_crop,
       :next_variety,
+      :next_plant_count,
+      :manually_edited,
       :recommendation_kind,
       :note,
       :nursery_date,
@@ -46,6 +50,7 @@ defmodule ChasingSun.Operations.OperationRecommendation do
       :note,
       :generated_on
     ])
+    |> validate_number(:next_plant_count, greater_than_or_equal_to: 0)
     |> unique_constraint(:greenhouse_id)
   end
 end

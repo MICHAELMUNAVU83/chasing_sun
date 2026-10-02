@@ -205,6 +205,20 @@ defmodule ChasingSun.Finance do
     |> Enum.sort_by(&Decimal.to_float(&1.revenue), :desc)
   end
 
+  @doc "Validates a greenhouse revenue range of at least seven inclusive calendar days."
+  def validate_harvest_revenue_range(from_date, to_date) do
+    with {:ok, from_date} <- coerce_date(from_date),
+         {:ok, to_date} <- coerce_date(to_date) do
+      cond do
+        Date.compare(to_date, from_date) == :lt -> {:error, "End date must be after start date."}
+        Date.diff(to_date, from_date) < 6 -> {:error, "Select a period of at least one week."}
+        true -> {:ok, from_date, to_date}
+      end
+    else
+      _ -> {:error, "Choose both a start and end date."}
+    end
+  end
+
   @doc "Calculates the KES sale value for a harvest, using its recorded price or crop-rule price."
   def sale_revenue(record) do
     quantity = decimal_from_number(record.actual_yield)

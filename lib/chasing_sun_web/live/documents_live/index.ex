@@ -80,7 +80,8 @@ defmodule ChasingSunWeb.DocumentsLive.Index do
              |> reset_upload_form()}
 
           {:error, changeset} ->
-            {:noreply, assign(socket, :upload_form, to_form(changeset, action: :validate, as: :document))}
+            {:noreply,
+             assign(socket, :upload_form, to_form(changeset, action: :validate, as: :document))}
         end
     end
   end
@@ -153,7 +154,11 @@ defmodule ChasingSunWeb.DocumentsLive.Index do
             phx-value-department={department}
             class={filter_tab_class(@selected_department, to_string(department))}
           >
-            {Phoenix.Naming.humanize(department)} ({Map.get(@department_counts, to_string(department), 0)})
+            {Phoenix.Naming.humanize(department)} ({Map.get(
+              @department_counts,
+              to_string(department),
+              0
+            )})
           </button>
         </div>
 
@@ -186,11 +191,14 @@ defmodule ChasingSunWeb.DocumentsLive.Index do
                 <td>{document.title}</td>
                 <td>{Phoenix.Naming.humanize(document.department)}</td>
                 <td>
-                  <span :for={tag <- document.tags} class="mr-1 inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-600">
+                  <span
+                    :for={tag <- document.tags}
+                    class="mr-1 inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-600"
+                  >
                     {tag}
                   </span>
                 </td>
-                <td>{document.uploaded_by && document.uploaded_by.email || "-"}</td>
+                <td>{(document.uploaded_by && document.uploaded_by.email) || "-"}</td>
                 <td>{format_date(document.inserted_at)}</td>
                 <td class="text-right">
                   <a href={~p"/documents/#{document.id}/download"} class="action-link">Download</a>
@@ -204,24 +212,40 @@ defmodule ChasingSunWeb.DocumentsLive.Index do
         </div>
       </div>
 
-      <.modal :if={@upload_modal_open} id="upload-document-modal" show on_cancel={JS.push("close_upload_modal")}>
+      <.modal
+        :if={@upload_modal_open}
+        id="upload-document-modal"
+        show
+        on_cancel={JS.push("close_upload_modal")}
+      >
         <div class="space-y-6">
           <h2 class="section-heading">Upload document</h2>
 
           <form phx-change="validate_upload" phx-submit="save_document" class="space-y-5">
             <label class="block rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-4 text-sm text-zinc-500">
               <span class="font-semibold text-zinc-900">Choose a file</span>
-              <.live_file_input upload={@uploads.document} class="mt-3 block w-full text-sm text-zinc-500" />
+              <.live_file_input
+                upload={@uploads.document}
+                class="mt-3 block w-full text-sm text-zinc-500"
+              />
             </label>
 
             <div :for={entry <- @uploads.document.entries} class="rounded-lg bg-zinc-50 px-4 py-3">
               <div class="flex items-center justify-between gap-4">
                 <p class="text-sm font-medium text-zinc-900">{entry.client_name}</p>
-                <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} class="action-link">
+                <button
+                  type="button"
+                  phx-click="cancel_upload"
+                  phx-value-ref={entry.ref}
+                  class="action-link"
+                >
                   Remove
                 </button>
               </div>
-              <p :for={error <- upload_errors(@uploads.document, entry)} class="mt-2 text-sm text-rose-600">
+              <p
+                :for={error <- upload_errors(@uploads.document, entry)}
+                class="mt-2 text-sm text-rose-600"
+              >
                 {upload_error_text(error)}
               </p>
             </div>
@@ -231,9 +255,28 @@ defmodule ChasingSunWeb.DocumentsLive.Index do
             </p>
 
             <.input field={@upload_form[:title]} type="text" label="Title" required />
-            <.input field={@upload_form[:department]} type="select" label="Department" options={enum_options(Document, :department)} prompt="Choose a department" required />
-            <.input field={@upload_form[:visibility]} type="select" label="Visibility" options={enum_options(Document, :visibility)} prompt="Choose a visibility" required />
-            <.input field={@upload_form[:tags]} type="text" label="Tags" placeholder="comma, separated, tags" />
+            <.input
+              field={@upload_form[:department]}
+              type="select"
+              label="Department"
+              options={enum_options(Document, :department)}
+              prompt="Choose a department"
+              required
+            />
+            <.input
+              field={@upload_form[:visibility]}
+              type="select"
+              label="Visibility"
+              options={enum_options(Document, :visibility)}
+              prompt="Choose a visibility"
+              required
+            />
+            <.input
+              field={@upload_form[:tags]}
+              type="text"
+              label="Tags"
+              placeholder="comma, separated, tags"
+            />
 
             <div class="flex items-center justify-between gap-4">
               <button type="button" phx-click="close_upload_modal" class="nav-chip">Cancel</button>

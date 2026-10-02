@@ -84,7 +84,9 @@ defmodule ChasingSunWeb.InvoicesLive.Show do
 
         <div class="mt-4 flex items-center justify-end gap-4 border-t border-zinc-200 pt-4">
           <span class="text-sm font-medium text-zinc-600">Grand total</span>
-          <span class="text-lg font-semibold text-zinc-900">{format_currency(Invoice.total(@invoice))}</span>
+          <span class="text-lg font-semibold text-zinc-900">
+            {format_currency(Invoice.total(@invoice))}
+          </span>
         </div>
       </div>
     </section>

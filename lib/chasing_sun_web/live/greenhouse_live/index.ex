@@ -20,6 +20,8 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
      |> assign(:page_title, "Greenhouses")
      |> assign(:current_greenhouse, nil)
      |> assign(:form_modal_open, false)
+     |> assign(:next_plan_modal_open, false)
+     |> assign(:current_recommendation, nil)
      |> load_crop_rules()
      |> load_greenhouses(venture_code)
      |> reset_forms()}
@@ -54,6 +56,92 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
      |> assign(:current_greenhouse, nil)
      |> assign(:form_modal_open, false)
      |> reset_forms()}
+  end
+
+  def handle_event("edit_next_plan", %{"id" => id}, socket) do
+    greenhouse = Operations.get_greenhouse!(id)
+    recommendation = greenhouse.operation_recommendation
+    cycle = Operations.current_cycle(greenhouse)
+
+    cond do
+      not ChasingSunWeb.UserAuth.can?(socket.assigns.current_user, :manage_greenhouses) ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to edit crop plans.")}
+
+      is_nil(recommendation) or is_nil(cycle) or cycle.status_cache != :soil_turning ->
+        {:noreply,
+         put_flash(socket, :error, "Incoming crops can be edited during soil recovery.")}
+
+      true ->
+        {:noreply,
+         socket
+         |> assign(:current_recommendation, recommendation)
+         |> assign(:next_plan_modal_open, true)
+         |> assign_next_plan_form(recommendation)}
+    end
+  end
+
+  def handle_event("close_next_plan_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:next_plan_modal_open, false)
+     |> assign(:current_recommendation, nil)}
+  end
+
+  def handle_event("next_plan_changed", %{"next_plan" => params}, socket) do
+    crop_type = params["next_crop"] || ""
+    varieties = Operations.crop_varieties(crop_type, socket.assigns.crop_rules)
+
+    params =
+      if params["next_variety"] in varieties do
+        params
+      else
+        Map.put(
+          params,
+          "next_variety",
+          Operations.default_variety_for_crop(crop_type, socket.assigns.crop_rules) || ""
+        )
+      end
+
+    {:noreply,
+     assign(socket,
+       next_plan_form: to_form(params, as: :next_plan),
+       next_plan_crop_type: crop_type,
+       next_plan_variety_options: varieties
+     )}
+  end
+
+  def handle_event("save_next_plan", %{"next_plan" => params}, socket) do
+    recommendation = socket.assigns.current_recommendation
+
+    result =
+      if ChasingSunWeb.UserAuth.can?(socket.assigns.current_user, :manage_greenhouses) and
+           recommendation do
+        Operations.update_next_crop_plan(recommendation, params, socket.assigns.current_user)
+      else
+        :unauthorized
+      end
+
+    case result do
+      {:ok, _recommendation} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Incoming crop plan updated.")
+         |> assign(:next_plan_modal_open, false)
+         |> assign(:current_recommendation, nil)
+         |> load_greenhouses(socket.assigns.selected_venture)}
+
+      {:error, changeset} ->
+        {:noreply,
+         socket
+         |> assign(
+           :next_plan_form,
+           to_form(Map.put(changeset, :action, :validate), as: :next_plan)
+         )
+         |> put_flash(:error, changeset_error_summary(changeset))}
+
+      :unauthorized ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to edit crop plans.")}
+    end
   end
 
   def handle_event(
@@ -384,6 +472,18 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
                     Harvest ends {format_date(recommendation.harvest_end_date)}
                   </span>
                 </div>
+                <button
+                  :if={
+                    ChasingSunWeb.UserAuth.can?(@current_user, :manage_greenhouses) and
+                      Operations.current_cycle(greenhouse).status_cache == :soil_turning
+                  }
+                  type="button"
+                  phx-click="edit_next_plan"
+                  phx-value-id={greenhouse.id}
+                  class="nav-chip mt-4"
+                >
+                  Edit incoming crop
+                </button>
             <% end %>
           </div>
 
@@ -504,6 +604,73 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
           </.form>
         </div>
       </.modal>
+
+      <.modal
+        :if={@next_plan_modal_open}
+        id="next-crop-plan-modal"
+        show
+        on_cancel={JS.push("close_next_plan_modal")}
+      >
+        <div class="space-y-6">
+          <div>
+            <p class="eyebrow">Soil recovery</p>
+            <h2 class="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
+              Edit incoming crop
+            </h2>
+            <p class="mt-2 text-sm text-[var(--muted)]">
+              These details will be used when this unit starts its next crop cycle.
+            </p>
+          </div>
+          <.form
+            for={@next_plan_form}
+            phx-change="next_plan_changed"
+            phx-submit="save_next_plan"
+            class="space-y-5"
+          >
+            <div class="grid gap-4 md:grid-cols-2">
+              <.input
+                field={@next_plan_form[:next_crop]}
+                type="select"
+                label="Next crop type"
+                options={crop_type_options(@crop_rules)}
+                required
+              />
+              <.input
+                field={@next_plan_form[:next_variety]}
+                type="select"
+                label="Next variety"
+                prompt="Choose variety"
+                options={select_options_for_varieties(@next_plan_variety_options)}
+                disabled={Enum.empty?(@next_plan_variety_options)}
+              />
+            </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              <.input field={@next_plan_form[:next_plant_count]} type="number" label="Plant count" />
+              <.input field={@next_plan_form[:nursery_date]} type="date" label="Nursery date" />
+            </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              <.input field={@next_plan_form[:transplant_date]} type="date" label="Transplant date" />
+              <.input
+                field={@next_plan_form[:harvest_start_date]}
+                type="date"
+                label="Harvest start date"
+              />
+            </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              <.input field={@next_plan_form[:harvest_end_date]} type="date" label="Harvest end date" />
+              <.input
+                field={@next_plan_form[:soil_recovery_end_date]}
+                type="date"
+                label="Next soil recovery end"
+              />
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <button type="button" phx-click="close_next_plan_modal" class="nav-chip">Cancel</button>
+              <.button>Save incoming crop</.button>
+            </div>
+          </.form>
+        </div>
+      </.modal>
     </section>
     """
   end
@@ -538,6 +705,29 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
       cycle_form: base_cycle_form(),
       selected_crop_type: "",
       variety_options: []
+    )
+  end
+
+  defp assign_next_plan_form(socket, recommendation) do
+    crop_type = recommendation.next_crop || ""
+
+    assign(socket,
+      next_plan_crop_type: crop_type,
+      next_plan_variety_options: Operations.crop_varieties(crop_type, socket.assigns.crop_rules),
+      next_plan_form:
+        to_form(
+          %{
+            "next_crop" => crop_type,
+            "next_variety" => recommendation.next_variety || "",
+            "next_plant_count" => recommendation.next_plant_count || "",
+            "nursery_date" => iso_date(recommendation.nursery_date),
+            "transplant_date" => iso_date(recommendation.transplant_date),
+            "harvest_start_date" => iso_date(recommendation.harvest_start_date),
+            "harvest_end_date" => iso_date(recommendation.harvest_end_date),
+            "soil_recovery_end_date" => iso_date(recommendation.soil_recovery_end_date)
+          },
+          as: :next_plan
+        )
     )
   end
 

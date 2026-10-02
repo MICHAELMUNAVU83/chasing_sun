@@ -26,4 +26,21 @@ defmodule ChasingSun.FinanceTest do
       assert Decimal.equal?(revenue, Decimal.new("1500"))
     end
   end
+
+  describe "validate_harvest_revenue_range/2" do
+    test "accepts periods of one week or longer" do
+      assert {:ok, ~D[2026-09-01], ~D[2026-09-07]} =
+               Finance.validate_harvest_revenue_range("2026-09-01", "2026-09-07")
+    end
+
+    test "rejects periods shorter than one week" do
+      assert {:error, "Select a period of at least one week."} =
+               Finance.validate_harvest_revenue_range("2026-09-01", "2026-09-06")
+    end
+
+    test "rejects a backwards period" do
+      assert {:error, "End date must be after start date."} =
+               Finance.validate_harvest_revenue_range("2026-09-07", "2026-09-01")
+    end
+  end
 end

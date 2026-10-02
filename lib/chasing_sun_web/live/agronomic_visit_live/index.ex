@@ -249,7 +249,10 @@ defmodule ChasingSunWeb.AgronomicVisitLive.Index do
           <form phx-change="validate" phx-submit="save" class="space-y-5">
             <label class="block rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-4 text-sm text-zinc-500">
               <span class="font-semibold text-zinc-900">Agronomic report (PDF or Word)</span>
-              <.live_file_input upload={@uploads.report} class="mt-3 block w-full text-sm text-zinc-500" />
+              <.live_file_input
+                upload={@uploads.report}
+                class="mt-3 block w-full text-sm text-zinc-500"
+              />
             </label>
 
             <div :for={entry <- @uploads.report.entries} class="rounded-lg bg-zinc-50 px-4 py-3">

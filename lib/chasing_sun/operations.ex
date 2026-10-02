@@ -146,6 +146,20 @@ defmodule ChasingSun.Operations do
   def change_greenhouse(greenhouse, attrs \\ %{}), do: Greenhouse.changeset(greenhouse, attrs)
   def change_crop_cycle(crop_cycle, attrs \\ %{}), do: CropCycle.changeset(crop_cycle, attrs)
 
+  def change_operation_recommendation(recommendation, attrs \\ %{}) do
+    OperationRecommendation.changeset(recommendation, attrs)
+  end
+
+  def update_next_crop_plan(%OperationRecommendation{} = recommendation, attrs, actor \\ nil) do
+    attrs = attrs |> stringify_keys() |> Map.put("manually_edited", true)
+
+    recommendation
+    |> OperationRecommendation.changeset(attrs)
+    |> Repo.update()
+    |> tap(&maybe_broadcast_operations_refresh/1)
+    |> audit_result(actor, "operation_recommendation", "next_crop_plan_updated")
+  end
+
   def create_greenhouse(greenhouse_attrs, cycle_attrs \\ %{}, actor \\ nil) do
     rules = list_crop_rules()
 
@@ -1232,7 +1246,7 @@ defmodule ChasingSun.Operations do
 
   defp maybe_rotate_cycle(%Greenhouse{} = greenhouse, %CropCycle{} = cycle, rules, today) do
     if RecommendationEngine.rotation_due?(cycle, today) do
-      recommendation = RecommendationEngine.build_recommendation(greenhouse, cycle, rules, today)
+      recommendation = recommendation_for_rotation(greenhouse, cycle, rules, today)
 
       next_cycle_attrs =
         recommendation_to_cycle_attrs(recommendation, greenhouse.id, cycle.plant_count)
@@ -1293,9 +1307,22 @@ defmodule ChasingSun.Operations do
         |> Repo.insert!()
 
       recommendation ->
-        recommendation
-        |> OperationRecommendation.changeset(attrs)
-        |> Repo.update!()
+        attrs =
+          if recommendation.manually_edited and recommendation.crop_cycle_id == cycle.id do
+            Map.drop(attrs, [
+              :next_crop,
+              :next_variety,
+              :nursery_date,
+              :transplant_date,
+              :harvest_start_date,
+              :harvest_end_date,
+              :soil_recovery_end_date
+            ])
+          else
+            Map.put(attrs, :manually_edited, false)
+          end
+
+        recommendation |> OperationRecommendation.changeset(attrs) |> Repo.update!()
     end
   end
 
@@ -1325,7 +1352,29 @@ defmodule ChasingSun.Operations do
           soil_recovery_end_date: recommendation.soil_recovery_end_date
         })
     }
+    |> Map.put(:plant_count, Map.get(recommendation, :next_plant_count) || plant_count)
   end
+
+  defp recommendation_for_rotation(greenhouse, cycle, rules, today) do
+    case Repo.get_by(OperationRecommendation,
+           greenhouse_id: greenhouse.id,
+           crop_cycle_id: cycle.id,
+           manually_edited: true
+         ) do
+      nil -> RecommendationEngine.build_recommendation(greenhouse, cycle, rules, today)
+      recommendation -> recommendation
+    end
+  end
+
+  defp maybe_broadcast_operations_refresh({:ok, _record}) do
+    Phoenix.PubSub.broadcast(
+      ChasingSun.PubSub,
+      @operations_topic,
+      {:operations_refreshed, Date.utc_today()}
+    )
+  end
+
+  defp maybe_broadcast_operations_refresh(_result), do: :ok
 
   defp maybe_insert_recommendation_notification(
          %Greenhouse{} = greenhouse,

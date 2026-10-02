@@ -35,7 +35,10 @@ defmodule ChasingSun.Documents do
     filters = stringify_keys(filters)
 
     Document
-    |> visibility_scope(Scope.can?(user, :bypass_document_visibility), visible_departments_for(user))
+    |> visibility_scope(
+      Scope.can?(user, :bypass_document_visibility),
+      visible_departments_for(user)
+    )
     |> maybe_filter_department(filters["department"])
     |> maybe_filter_search(filters["query"])
     |> order_by([d], asc: d.department, asc: d.title)
@@ -60,10 +63,17 @@ defmodule ChasingSun.Documents do
   @doc "Single-record mirror of list_documents/2's visibility predicate."
   def visible?(user, %Document{} = document) do
     cond do
-      Scope.can?(user, :bypass_document_visibility) -> true
-      document.visibility == :all_staff -> true
-      document.visibility == :department_only -> document.department in visible_departments_for(user)
-      true -> false
+      Scope.can?(user, :bypass_document_visibility) ->
+        true
+
+      document.visibility == :all_staff ->
+        true
+
+      document.visibility == :department_only ->
+        document.department in visible_departments_for(user)
+
+      true ->
+        false
     end
   end
 
@@ -87,7 +97,11 @@ defmodule ChasingSun.Documents do
     case Repo.delete(document) do
       {:ok, deleted} ->
         upload_root() |> Path.join(deleted.file_url) |> File.rm()
-        insert_audit(Repo, actor, "document", deleted.id, "document_deleted", %{title: deleted.title})
+
+        insert_audit(Repo, actor, "document", deleted.id, "document_deleted", %{
+          title: deleted.title
+        })
+
         {:ok, deleted}
 
       error ->
@@ -99,7 +113,9 @@ defmodule ChasingSun.Documents do
 
   defp visibility_scope(query, false, departments) do
     from d in query,
-      where: d.visibility == :all_staff or (d.visibility == :department_only and d.department in ^departments)
+      where:
+        d.visibility == :all_staff or
+          (d.visibility == :department_only and d.department in ^departments)
   end
 
   defp maybe_filter_department(query, nil), do: query
@@ -121,9 +137,14 @@ defmodule ChasingSun.Documents do
 
   defp normalize_tags(attrs) do
     case Map.get(attrs, "tags") do
-      nil -> attrs
-      tags when is_binary(tags) -> Map.put(attrs, "tags", parse_tags(tags))
-      tags when is_list(tags) -> Map.put(attrs, "tags", tags |> Enum.map(&normalize_tag/1) |> Enum.uniq())
+      nil ->
+        attrs
+
+      tags when is_binary(tags) ->
+        Map.put(attrs, "tags", parse_tags(tags))
+
+      tags when is_list(tags) ->
+        Map.put(attrs, "tags", tags |> Enum.map(&normalize_tag/1) |> Enum.uniq())
     end
   end
 
