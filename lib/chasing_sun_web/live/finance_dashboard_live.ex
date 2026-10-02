@@ -3,6 +3,8 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
 
   alias ChasingSun.Finance
   alias ChasingSun.Harvesting
+  alias ChasingSun.Operations
+  alias ChasingSun.Accounts.Scope
 
   @impl true
   def mount(_params, _session, socket) do
@@ -20,21 +22,37 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
      |> assign(:page_title, "Finance")
      |> assign(:revenue_range, %{
        "date_from" => Date.to_iso8601(week_start),
-       "date_to" => Date.to_iso8601(Date.end_of_week(week_start))
+       "date_to" => Date.to_iso8601(Date.end_of_week(week_start)),
+       "greenhouse_id" => ""
      })
+     |> assign(
+       :greenhouse_options,
+       socket.assigns.current_user
+       |> Scope.operations_filters()
+       |> Operations.list_greenhouses()
+       |> Enum.map(&{&1.name, &1.id})
+     )
      |> assign(:revenue_range_error, nil)
      |> load_totals()}
   end
 
   @impl true
   def handle_event("calculate_greenhouse_revenue", %{"revenue_range" => params}, socket) do
+    greenhouse_id = selected_greenhouse_id(socket, params["greenhouse_id"])
+    params = Map.put(params, "greenhouse_id", greenhouse_id || "")
+
     case Finance.validate_harvest_revenue_range(params["date_from"], params["date_to"]) do
       {:ok, from_date, to_date} ->
         {:noreply,
          assign(socket,
            revenue_range: params,
            revenue_range_error: nil,
-           greenhouse_revenue: Finance.harvest_revenue_by_greenhouse(from_date, to_date)
+           greenhouse_revenue:
+             Finance.harvest_revenue_by_greenhouse(
+               from_date,
+               to_date,
+               greenhouse_id
+             )
          )}
 
       {:error, message} ->
@@ -66,7 +84,11 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
         assign(
           socket,
           :greenhouse_revenue,
-          Finance.harvest_revenue_by_greenhouse(from_date, to_date)
+          Finance.harvest_revenue_by_greenhouse(
+            from_date,
+            to_date,
+            socket.assigns.revenue_range["greenhouse_id"]
+          )
         )
 
       {:error, _message} ->
@@ -167,6 +189,13 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
             phx-submit="calculate_greenhouse_revenue"
             class="flex flex-wrap items-end gap-3"
           >
+            <.input
+              field={f[:greenhouse_id]}
+              type="select"
+              label="Greenhouse"
+              prompt="All greenhouses"
+              options={@greenhouse_options}
+            />
             <.input field={f[:date_from]} type="date" label="From" required />
             <.input field={f[:date_to]} type="date" label="To" required />
             <.button>Calculate revenue</.button>
@@ -282,6 +311,16 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
 
   defp greenhouse_revenue_total(rows) do
     Enum.reduce(rows, Decimal.new(0), &Decimal.add(&1.revenue, &2))
+  end
+
+  defp selected_greenhouse_id(_socket, greenhouse_id) when greenhouse_id in [nil, ""], do: nil
+
+  defp selected_greenhouse_id(socket, greenhouse_id) do
+    if Enum.any?(socket.assigns.greenhouse_options, fn {_name, id} ->
+         to_string(id) == to_string(greenhouse_id)
+       end),
+       do: greenhouse_id,
+       else: nil
   end
 
   defp trend_chart(trend) do

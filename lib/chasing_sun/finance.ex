@@ -190,9 +190,9 @@ defmodule ChasingSun.Finance do
   end
 
   @doc "Returns harvest sales grouped by greenhouse for the requested date range."
-  def harvest_revenue_by_greenhouse(from_date, to_date) do
+  def harvest_revenue_by_greenhouse(from_date, to_date, greenhouse_id \\ nil) do
     from_date
-    |> harvest_sales_rows(to_date)
+    |> harvest_sales_rows(to_date, greenhouse_id)
     |> Enum.group_by(&{&1.greenhouse_id, &1.greenhouse_name})
     |> Enum.map(fn {{greenhouse_id, greenhouse_name}, rows} ->
       %{
@@ -244,8 +244,8 @@ defmodule ChasingSun.Finance do
     end)
   end
 
-  defp harvest_sales_rows(from_date, to_date) do
-    Repo.all(
+  defp harvest_sales_rows(from_date, to_date, greenhouse_id \\ nil) do
+    query =
       from h in HarvestRecord,
         join: g in assoc(h, :greenhouse),
         left_join: c in assoc(h, :crop_cycle),
@@ -260,7 +260,18 @@ defmodule ChasingSun.Finance do
           price_per_kg: h.price_per_kg,
           rule_price: r.price_per_unit
         }
-    )
+
+    query
+    |> maybe_filter_harvest_greenhouse(greenhouse_id)
+    |> Repo.all()
+  end
+
+  defp maybe_filter_harvest_greenhouse(query, greenhouse_id)
+       when greenhouse_id in [nil, ""],
+       do: query
+
+  defp maybe_filter_harvest_greenhouse(query, greenhouse_id) do
+    from [h, _g, _c, _r] in query, where: h.greenhouse_id == ^greenhouse_id
   end
 
   defp decimal_from_number(nil), do: Decimal.new(0)
