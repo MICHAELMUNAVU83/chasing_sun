@@ -60,23 +60,29 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
 
   def handle_event("edit_next_plan", %{"id" => id}, socket) do
     greenhouse = Operations.get_greenhouse!(id)
-    recommendation = greenhouse.operation_recommendation
     cycle = Operations.current_cycle(greenhouse)
 
     cond do
       not ChasingSunWeb.UserAuth.can?(socket.assigns.current_user, :manage_greenhouses) ->
         {:noreply, put_flash(socket, :error, "You do not have permission to edit crop plans.")}
 
-      is_nil(recommendation) or is_nil(cycle) or cycle.status_cache != :soil_turning ->
+      is_nil(cycle) or cycle.status_cache != :soil_turning ->
         {:noreply,
          put_flash(socket, :error, "Incoming crops can be edited during soil recovery.")}
 
       true ->
-        {:noreply,
-         socket
-         |> assign(:current_recommendation, recommendation)
-         |> assign(:next_plan_modal_open, true)
-         |> assign_next_plan_form(recommendation)}
+        case Operations.ensure_operation_recommendation(greenhouse) do
+          {:ok, recommendation} ->
+            {:noreply,
+             socket
+             |> assign(:current_recommendation, recommendation)
+             |> assign(:next_plan_modal_open, true)
+             |> assign_next_plan_form(recommendation)}
+
+          {:error, :no_active_cycle} ->
+            {:noreply,
+             put_flash(socket, :error, "Add an active crop cycle before planning the next crop.")}
+        end
     end
   end
 
@@ -472,19 +478,19 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
                     Harvest ends {format_date(recommendation.harvest_end_date)}
                   </span>
                 </div>
-                <button
-                  :if={
-                    ChasingSunWeb.UserAuth.can?(@current_user, :manage_greenhouses) and
-                      Operations.current_cycle(greenhouse).status_cache == :soil_turning
-                  }
-                  type="button"
-                  phx-click="edit_next_plan"
-                  phx-value-id={greenhouse.id}
-                  class="nav-chip mt-4"
-                >
-                  Edit incoming crop
-                </button>
             <% end %>
+            <button
+              :if={
+                ChasingSunWeb.UserAuth.can?(@current_user, :manage_greenhouses) and
+                  soil_recovery?(greenhouse)
+              }
+              type="button"
+              phx-click="edit_next_plan"
+              phx-value-id={greenhouse.id}
+              class="nav-chip mt-4"
+            >
+              Edit incoming crop
+            </button>
           </div>
 
           <div
@@ -920,6 +926,13 @@ defmodule ChasingSunWeb.GreenhouseLive.Index do
 
   defp variety_for(nil), do: ""
   defp variety_for(cycle), do: cycle.variety || ""
+
+  defp soil_recovery?(greenhouse) do
+    case Operations.current_cycle(greenhouse) do
+      %{status_cache: :soil_turning} -> true
+      _ -> false
+    end
+  end
 
   defp clear_dependent_cycle_fields(cycle_params, target) do
     case cycle_target_field(target) do

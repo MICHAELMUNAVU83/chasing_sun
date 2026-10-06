@@ -160,6 +160,18 @@ defmodule ChasingSun.Operations do
     |> audit_result(actor, "operation_recommendation", "next_crop_plan_updated")
   end
 
+  def ensure_operation_recommendation(%Greenhouse{} = greenhouse, today \\ Date.utc_today()) do
+    greenhouse = ensure_active_cycles_loaded(greenhouse)
+
+    case current_cycle(greenhouse) do
+      nil ->
+        {:error, :no_active_cycle}
+
+      %CropCycle{} = cycle ->
+        {:ok, upsert_recommendation(greenhouse, cycle, list_crop_rules(), today)}
+    end
+  end
+
   def create_greenhouse(greenhouse_attrs, cycle_attrs \\ %{}, actor \\ nil) do
     rules = list_crop_rules()
 
