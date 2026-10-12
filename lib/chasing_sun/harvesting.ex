@@ -160,6 +160,24 @@ defmodule ChasingSun.Harvesting do
     end
   end
 
+  @doc "Deletes a harvest record and keeps an audit trail of the removal."
+  def delete_harvest_record(%HarvestRecord{} = record, actor) do
+    Multi.new()
+    |> Multi.delete(:record, record)
+    |> Multi.run(:audit, fn repo, %{record: deleted_record} ->
+      insert_audit(repo, actor, deleted_record, "harvest_record_deleted")
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{record: deleted_record}} ->
+        broadcast_harvest_changed(deleted_record)
+        {:ok, deleted_record}
+
+      {:error, _step, reason, _changes} ->
+        {:error, reason}
+    end
+  end
+
   defp maybe_filter_venture(query, nil), do: query
   defp maybe_filter_venture(query, "all"), do: query
 

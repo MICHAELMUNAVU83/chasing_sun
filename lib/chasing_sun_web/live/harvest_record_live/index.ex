@@ -1,7 +1,6 @@
 defmodule ChasingSunWeb.HarvestRecordLive.Index do
   use ChasingSunWeb, :live_view
 
-  alias ChasingSun.Accounts.Scope
   alias ChasingSun.Harvesting
   alias ChasingSun.Harvesting.HarvestRecord
   alias ChasingSun.Accounts.Scope
@@ -137,6 +136,26 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
       end
     else
       {:noreply, put_flash(socket, :error, "You do not have permission to record harvests.")}
+    end
+  end
+
+  def handle_event("delete", %{"id" => id}, socket) do
+    if ChasingSunWeb.UserAuth.can?(socket.assigns.current_user, :manage_harvest) do
+      record = find_record!(socket.assigns.records, id)
+
+      case Harvesting.delete_harvest_record(record, socket.assigns.current_user) do
+        {:ok, _record} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Harvest record deleted.")
+           |> load_records(socket.assigns.selected_venture)
+           |> reset_form()}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Harvest record could not be deleted.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You do not have permission to delete harvests.")}
     end
   end
 
@@ -276,15 +295,28 @@ defmodule ChasingSunWeb.HarvestRecordLive.Index do
                 </td>
                 <td class="max-w-xs text-[var(--muted)]">{blank_fallback(record.notes)}</td>
                 <td class="text-right">
-                  <button
+                  <div
                     :if={ChasingSunWeb.UserAuth.can?(@current_user, :manage_harvest)}
-                    type="button"
-                    phx-click="edit"
-                    phx-value-id={record.id}
-                    class="action-link"
+                    class="flex items-center justify-end gap-3"
                   >
-                    Edit
-                  </button>
+                    <button
+                      type="button"
+                      phx-click="edit"
+                      phx-value-id={record.id}
+                      class="action-link"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="delete"
+                      phx-value-id={record.id}
+                      data-confirm="Delete this harvest record? This cannot be undone."
+                      class="action-link text-rose-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr :if={Enum.empty?(@records)}>
