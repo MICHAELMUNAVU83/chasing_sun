@@ -7,6 +7,7 @@ defmodule ChasingSun.Finance do
   alias ChasingSun.Repo
   alias ChasingSun.Accounts.User
   alias ChasingSun.Harvesting.HarvestRecord
+  alias ChasingSun.Operations
   alias ChasingSun.Operations.AuditEvent
   alias ChasingSun.Operations.CropRule
 
@@ -203,6 +204,25 @@ defmodule ChasingSun.Finance do
       }
     end)
     |> Enum.sort_by(&Decimal.to_float(&1.revenue), :desc)
+  end
+
+  @doc "Returns revenue rows for every visible greenhouse, including zero-revenue units."
+  def all_greenhouse_revenue(from_date, to_date, operations_filters \\ %{}) do
+    revenue_by_greenhouse =
+      from_date
+      |> harvest_revenue_by_greenhouse(to_date)
+      |> Map.new(&{&1.greenhouse_id, &1})
+
+    operations_filters
+    |> Operations.list_greenhouses()
+    |> Enum.map(fn greenhouse ->
+      Map.get(revenue_by_greenhouse, greenhouse.id, %{
+        greenhouse_id: greenhouse.id,
+        greenhouse_name: greenhouse.name,
+        yield: 0.0,
+        revenue: Decimal.new(0)
+      })
+    end)
   end
 
   @doc "Validates a greenhouse revenue range of at least seven inclusive calendar days."

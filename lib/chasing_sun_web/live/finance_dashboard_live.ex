@@ -205,12 +205,19 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
           {@revenue_range_error}
         </p>
         <div class="mt-6 rounded-[1.25rem] bg-[var(--surface-soft)] px-5 py-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-            Total greenhouse revenue
-          </p>
-          <p class="mt-2 text-2xl font-semibold text-[var(--ink)]">
-            {format_currency(greenhouse_revenue_total(@greenhouse_revenue))}
-          </p>
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Total greenhouse revenue
+              </p>
+              <p class="mt-2 text-2xl font-semibold text-[var(--ink)]">
+                {format_currency(greenhouse_revenue_total(@greenhouse_revenue))}
+              </p>
+            </div>
+            <.link href={greenhouse_revenue_export_path(@revenue_range)} class="filter-tab">
+              Export all greenhouses to Excel
+            </.link>
+          </div>
         </div>
         <div class="mt-6 overflow-x-auto">
           <table class="data-table">
@@ -311,6 +318,10 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
 
   defp greenhouse_revenue_total(rows) do
     Enum.reduce(rows, Decimal.new(0), &Decimal.add(&1.revenue, &2))
+  end
+
+  defp greenhouse_revenue_export_path(revenue_range) do
+    ~p"/finance/greenhouse-revenue/export?#{%{date_from: revenue_range["date_from"], date_to: revenue_range["date_to"]}}"
   end
 
   defp selected_greenhouse_id(_socket, greenhouse_id) when greenhouse_id in [nil, ""], do: nil

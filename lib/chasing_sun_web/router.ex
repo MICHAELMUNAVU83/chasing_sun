@@ -68,6 +68,7 @@ defmodule ChasingSunWeb.Router do
       pipe_through [:browser, :require_authenticated_user]
 
       live "/finance", FinanceDashboardLive, :index
+      get "/finance/greenhouse-revenue/export", FinanceExportController, :show
       live "/finance/transactions/new", TransactionsLive.Index, :new
       live "/finance/transactions/:id/edit", TransactionsLive.Edit, :edit
       live "/finance/transactions", TransactionsLive.Index, :index
