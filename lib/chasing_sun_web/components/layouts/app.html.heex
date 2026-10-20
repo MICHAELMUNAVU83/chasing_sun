@@ -1,8 +1,13 @@
 <%= if @current_user do %>
-  <div class="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
+  <div class="w-full px-4 py-5 sm:px-6 lg:px-6">
     <div class="grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)]">
       <aside class="sidebar-shell lg:sticky lg:top-5 lg:h-[calc(100vh-2.5rem)]">
-        <.brand_lockup navigate={~p"/dashboard"} subtitle={nil} image_class="h-9 w-9" />
+        <.brand_lockup
+          navigate={~p"/dashboard"}
+          subtitle={nil}
+          image_class="h-9 w-9"
+          title_class="sidebar-brand-title"
+        />
 
         <nav class="sidebar-scroll sidebar-nav">
           <a
@@ -43,14 +48,14 @@
             </div>
           </div>
           <div class="flex items-center gap-3 pl-12 text-sm">
-            <a href={~p"/users/settings"} class="text-zinc-500 transition hover:text-zinc-900">
+            <a href={~p"/users/settings"} class="sidebar-muted-link">
               Settings
             </a>
-            <span class="text-zinc-300">·</span>
+            <span class="text-white/30">·</span>
             <.link
               method="delete"
               href={~p"/users/log_out"}
-              class="text-zinc-500 transition hover:text-zinc-900"
+              class="sidebar-muted-link"
             >
               Log out
             </.link>

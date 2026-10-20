@@ -4,9 +4,9 @@
 
 @layer base {
   :root {
-    --canvas: #fafaf9;
+    --canvas: #f5f6f3;
     --surface: #ffffff;
-    --surface-soft: #fafaf9;
+    --surface-soft: #f5f6f3;
     --ink: #18181b;
     --muted: #71717a;
     --line: #e4e4e7;
@@ -14,11 +14,15 @@
     --brand-green: #3f722f;
     --brand-green-deep: #345f27;
     --brand-yellow: #f3d74f;
+    --sidebar: #1f3a1b;
+    --sidebar-hover: #2a4a25;
+    --sidebar-line: #33552d;
+    --sidebar-text: #c9d6c4;
   }
 
   body {
     font-family: "Avenir Next", "Segoe UI", sans-serif;
-    background: #fafaf9;
+    background: var(--canvas);
     color: var(--ink);
   }
 }
@@ -45,7 +49,11 @@
   }
 
   .metric-card {
-    @apply rounded-xl border border-zinc-200 bg-white p-5 shadow-sm;
+    @apply rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition;
+  }
+
+  .metric-card:hover {
+    @apply border-zinc-300;
   }
 
   .metric-label {
@@ -53,7 +61,8 @@
   }
 
   .metric-value {
-    @apply mt-2 text-2xl font-semibold tracking-tight text-zinc-900;
+    @apply mt-2 text-2xl font-semibold tracking-tight tabular-nums;
+    color: var(--sidebar);
   }
 
   .metric-hint {
@@ -87,13 +96,14 @@
   }
 
   .sidebar-shell {
-    @apply flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-white p-5;
+    @apply flex h-full min-h-0 flex-col overflow-hidden rounded-xl p-5;
+    background: var(--sidebar);
   }
 
   .sidebar-scroll {
     @apply mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(63, 114, 47, 0.3) transparent;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   }
 
   .sidebar-scroll::-webkit-scrollbar {
@@ -106,7 +116,20 @@
 
   .sidebar-scroll::-webkit-scrollbar-thumb {
     border-radius: 9999px;
-    background: rgba(63, 114, 47, 0.25);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .sidebar-brand-title {
+    @apply text-base font-semibold text-white;
+  }
+
+  .sidebar-muted-link {
+    @apply transition;
+    color: var(--sidebar-text);
+  }
+
+  .sidebar-muted-link:hover {
+    @apply text-white;
   }
 
   .sidebar-avatar {
@@ -114,16 +137,18 @@
   }
 
   .sidebar-avatar-mark {
-    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white;
-    background: var(--brand-green);
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold;
+    background: var(--brand-yellow);
+    color: var(--sidebar);
   }
 
   .sidebar-avatar-email {
-    @apply truncate text-sm font-medium text-zinc-900;
+    @apply truncate text-sm font-medium text-white;
   }
 
   .sidebar-avatar-role {
-    @apply truncate text-xs text-zinc-500;
+    @apply truncate text-xs;
+    color: var(--sidebar-text);
   }
 
   .sidebar-nav {
@@ -131,20 +156,25 @@
   }
 
   .sidebar-link {
-    @apply flex items-center border-l-2 border-transparent px-3 py-2 text-sm text-zinc-600 transition;
+    @apply flex items-center rounded-md px-3 py-2 text-sm transition;
+    color: var(--sidebar-text);
   }
 
   .sidebar-link:hover {
-    @apply text-zinc-900;
+    @apply text-white;
+    background: var(--sidebar-hover);
   }
 
-  .sidebar-link-active {
-    @apply font-medium text-zinc-900;
-    border-color: var(--brand-green-deep);
+  .sidebar-link-active,
+  .sidebar-link-active:hover {
+    @apply font-medium text-white;
+    background: var(--sidebar-hover);
+    box-shadow: inset 3px 0 0 var(--brand-yellow);
   }
 
   .sidebar-footer {
-    @apply mt-6 flex flex-col gap-2 border-t border-zinc-200 pt-4;
+    @apply mt-6 flex flex-col gap-2 border-t pt-4;
+    border-color: var(--sidebar-line);
   }
 
   .action-link {
@@ -161,11 +191,20 @@
   }
 
   .data-table thead th {
-    @apply border-b border-zinc-200 px-4 py-3 text-xs font-medium uppercase tracking-wide text-zinc-400;
+    @apply border-b border-zinc-200 px-4 py-3 text-xs font-medium uppercase tracking-wide text-zinc-500;
+    background: var(--canvas);
   }
 
   .data-table tbody td {
-    @apply border-b border-zinc-100 px-4 py-3 align-top text-zinc-800;
+    @apply border-b border-zinc-100 px-4 py-3 align-top tabular-nums text-zinc-800;
+  }
+
+  .data-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .data-table tbody tr:hover td {
+    background: var(--canvas);
   }
 
   .status-board-table thead th {
@@ -177,7 +216,7 @@
   }
 
   .status-board-table tbody tr:hover {
-    @apply bg-zinc-50;
+    background: var(--canvas);
   }
 
   .chart-shell {
