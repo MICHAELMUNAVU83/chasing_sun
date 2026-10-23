@@ -214,9 +214,6 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
                 {format_currency(greenhouse_revenue_total(@greenhouse_revenue))}
               </p>
             </div>
-            <.link href={greenhouse_revenue_export_path(@revenue_range)} class="filter-tab">
-              Export all greenhouses to Excel
-            </.link>
           </div>
         </div>
         <div class="mt-6 overflow-x-auto">
@@ -226,6 +223,7 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
                 <th>Greenhouse</th>
                 <th>Harvested</th>
                 <th>Revenue</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -233,9 +231,17 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
                 <td>{row.greenhouse_name}</td>
                 <td>{ChasingSunWeb.FormatHelpers.format_exact(row.yield)} kg</td>
                 <td class="font-semibold text-[var(--ink)]">{format_currency(row.revenue)}</td>
+                <td class="text-right">
+                  <.link
+                    href={greenhouse_revenue_export_path(@revenue_range, row.greenhouse_id)}
+                    class="filter-tab"
+                  >
+                    Export to Excel
+                  </.link>
+                </td>
               </tr>
               <tr :if={Enum.empty?(@greenhouse_revenue)}>
-                <td colspan="3" class="text-center text-sm text-zinc-400">
+                <td colspan="4" class="text-center text-sm text-zinc-400">
                   No harvest sales recorded in this period.
                 </td>
               </tr>
@@ -320,8 +326,8 @@ defmodule ChasingSunWeb.FinanceDashboardLive do
     Enum.reduce(rows, Decimal.new(0), &Decimal.add(&1.revenue, &2))
   end
 
-  defp greenhouse_revenue_export_path(revenue_range) do
-    ~p"/finance/greenhouse-revenue/export?#{%{date_from: revenue_range["date_from"], date_to: revenue_range["date_to"]}}"
+  defp greenhouse_revenue_export_path(revenue_range, greenhouse_id) do
+    ~p"/finance/greenhouse-revenue/export?#{%{date_from: revenue_range["date_from"], date_to: revenue_range["date_to"], greenhouse_id: greenhouse_id}}"
   end
 
   defp selected_greenhouse_id(_socket, greenhouse_id) when greenhouse_id in [nil, ""], do: nil

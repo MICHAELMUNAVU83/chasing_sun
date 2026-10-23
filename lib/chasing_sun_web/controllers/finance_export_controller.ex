@@ -24,8 +24,9 @@ defmodule ChasingSunWeb.FinanceExportController do
             to_date,
             Scope.operations_filters(conn.assigns.current_user)
           )
+          |> Enum.filter(&(to_string(&1.greenhouse_id) == to_string(params["greenhouse_id"])))
 
-        filename = "greenhouse-revenue-#{from_date}-to-#{to_date}.xls"
+        filename = "greenhouse-revenue-#{export_slug(rows)}-#{from_date}-to-#{to_date}.xls"
 
         conn
         |> put_resp_content_type("application/vnd.ms-excel")
@@ -38,4 +39,10 @@ defmodule ChasingSunWeb.FinanceExportController do
         |> redirect(to: ~p"/finance")
     end
   end
+
+  defp export_slug([%{greenhouse_name: name} | _]) do
+    name |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "-") |> String.trim("-")
+  end
+
+  defp export_slug([]), do: "greenhouse"
 end
