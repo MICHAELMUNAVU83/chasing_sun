@@ -1,9 +1,10 @@
 defmodule ChasingSun.Finance.GreenhouseRevenueExport do
   @moduledoc false
 
-  def workbook(rows, from_date, to_date) do
+  def workbook(rows, lines, from_date, to_date) do
     total_yield = Enum.reduce(rows, 0.0, &((&1.yield || 0.0) + &2))
     total_revenue = Enum.reduce(rows, Decimal.new(0), &Decimal.add(&1.revenue, &2))
+    greenhouse_name = Enum.map_join(rows, ", ", & &1.greenhouse_name)
 
     [
       ~s(<?xml version="1.0"?>),
@@ -14,12 +15,22 @@ defmodule ChasingSun.Finance.GreenhouseRevenueExport do
       ~s(xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">),
       worksheet("Greenhouse revenue", [
         ["Greenhouse revenue report"],
+        ["Greenhouse", greenhouse_name],
         ["From", Date.to_iso8601(from_date)],
         ["To", Date.to_iso8601(to_date)],
         [],
-        ["Greenhouse", "Harvested (kg)", "Revenue (KES)"]
-        | Enum.map(rows, &[&1.greenhouse_name, &1.yield, &1.revenue]) ++
-            [["Total", total_yield, total_revenue]]
+        ["Week starting", "Week ending", "Harvested (kg)", "Price per kg (KES)", "Revenue (KES)"]
+        | Enum.map(
+            lines,
+            &[
+              Date.to_iso8601(&1.week_start),
+              Date.to_iso8601(&1.week_ending_on),
+              &1.yield,
+              &1.price_per_kg,
+              &1.revenue
+            ]
+          ) ++
+            [["Total", "", total_yield, "", total_revenue]]
       ]),
       "</Workbook>"
     ]

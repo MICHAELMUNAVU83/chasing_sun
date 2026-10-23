@@ -26,12 +26,14 @@ defmodule ChasingSunWeb.FinanceExportController do
           )
           |> Enum.filter(&(to_string(&1.greenhouse_id) == to_string(params["greenhouse_id"])))
 
+        lines = Finance.harvest_revenue_lines(from_date, to_date, params["greenhouse_id"])
+
         filename = "greenhouse-revenue-#{export_slug(rows)}-#{from_date}-to-#{to_date}.xls"
 
         conn
         |> put_resp_content_type("application/vnd.ms-excel")
         |> put_resp_header("content-disposition", ~s(attachment; filename="#{filename}"))
-        |> send_resp(200, GreenhouseRevenueExport.workbook(rows, from_date, to_date))
+        |> send_resp(200, GreenhouseRevenueExport.workbook(rows, lines, from_date, to_date))
 
       {:error, message} ->
         conn

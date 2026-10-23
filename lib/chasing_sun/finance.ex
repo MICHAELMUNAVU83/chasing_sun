@@ -206,6 +206,22 @@ defmodule ChasingSun.Finance do
     |> Enum.sort_by(&Decimal.to_float(&1.revenue), :desc)
   end
 
+  @doc "Returns one revenue line per harvest week for a greenhouse, oldest first."
+  def harvest_revenue_lines(from_date, to_date, greenhouse_id) do
+    from_date
+    |> harvest_sales_rows(to_date, greenhouse_id)
+    |> Enum.map(fn row ->
+      %{
+        week_start: Date.beginning_of_week(row.week_ending_on),
+        week_ending_on: row.week_ending_on,
+        yield: row.actual_yield || 0.0,
+        price_per_kg: decimal_from_number(row.price_per_kg || row.rule_price),
+        revenue: sale_revenue(row)
+      }
+    end)
+    |> Enum.sort_by(& &1.week_ending_on, Date)
+  end
+
   @doc "Returns revenue rows for every visible greenhouse, including zero-revenue units."
   def all_greenhouse_revenue(from_date, to_date, operations_filters \\ %{}) do
     revenue_by_greenhouse =
